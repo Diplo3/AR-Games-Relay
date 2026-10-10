@@ -1,49 +1,47 @@
-<!doctype html>
-<html lang="ru">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>AR Games Relay</title>
-<style>
-body{font-family:system-ui,sans-serif;background:#111;color:#fff;max-width:720px;margin:40px auto;padding:20px}
-.card{background:#1d1d1d;border-radius:18px;padding:22px;margin:14px 0}input,button{font:inherit;padding:14px;border-radius:12px;border:0;margin:5px}
-input{background:#292929;color:#fff;text-transform:uppercase}.go{background:#ffc400;font-weight:800}.b{width:45%;min-height:100px;font-size:24px;font-weight:900}
-#log{white-space:pre-wrap;font-family:monospace;max-height:300px;overflow:auto}.ok{color:#71e58b}.bad{color:#ff7c7c}
-</style>
-</head>
-<body>
-<h1>AR Games Relay <small>v0.1</small></h1>
-<div class="card">
-  <input id="room" value="TEST01" maxlength="8" placeholder="Код комнаты">
-  <select id="role" style="padding:14px;border-radius:12px"><option value="host">Ноутбук / HOST</option><option value="player">Телефон / PLAYER</option></select>
-  <button class="go" onclick="connect()">Подключиться</button>
-  <p id="status">Не подключено</p>
+<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AR Games Relay v0.2</title><style>
+body{font-family:system-ui,sans-serif;background:#101010;color:#fff;max-width:900px;margin:25px auto;padding:16px}
+.card{background:#1c1c1c;border-radius:18px;padding:18px;margin:12px 0}input,select,button{font:inherit;padding:12px;border:0;border-radius:11px;margin:4px}
+input{background:#292929;color:#fff;text-transform:uppercase}.go{background:#ffc400;font-weight:800}.btn{min-height:85px;width:47%;font-size:22px;font-weight:900}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.stat{background:#292929;padding:12px;border-radius:12px}.num{font-size:25px;font-weight:800}
+.ok{color:#70e78a}.bad{color:#ff7474}#log{white-space:pre-wrap;font:12px monospace;max-height:230px;overflow:auto}
+@media(max-width:650px){.grid{grid-template-columns:repeat(2,1fr)}.btn{width:46%}}
+</style></head><body>
+<h1>AR Games Relay v0.2</h1>
+<div class="card"><input id="room" value="TEST01" maxlength="8"><select id="role"><option value="host">Ноутбук / HOST</option><option value="player">Телефон / PLAYER</option></select>
+<button class="go" onclick="manualConnect()">Подключиться</button><span id="status">Не подключено</span></div>
+<div class="grid">
+<div class="stat">Телефонов<div class="num" id="players">0</div></div>
+<div class="stat">Получено<div class="num" id="received">0</div></div>
+<div class="stat">RTT сейчас<div class="num" id="rtt">—</div></div>
+<div class="stat">RTT среднее<div class="num" id="avg">—</div></div>
 </div>
-<div class="card">
-  <button class="b" onclick="press('JMI1')">ЖМИ 1</button>
-  <button class="b" onclick="press('JMI2')">ЖМИ 2</button>
-</div>
-<div class="card"><b>События:</b><div id="log"></div></div>
+<div class="card"><button class="btn" onclick="press('JMI1')">ЖМИ 1</button><button class="btn" onclick="press('JMI2')">ЖМИ 2</button>
+<p><button onclick="burst()">Тест: 100 импульсов</button> <button onclick="resetStats()">Сбросить статистику</button></p></div>
+<div class="card"><b>Диагностика</b><div id="log"></div></div>
 <script>
-let ws;
-const statusEl=document.getElementById('status'), logEl=document.getElementById('log');
-function log(x){logEl.textContent=new Date().toLocaleTimeString()+"  "+x+"\n"+logEl.textContent}
+let ws,seq=0,received=0,rtts=[],reconnectTimer,pingTimer,shouldReconnect=false;
+const clientId=localStorage.arRelayId||(localStorage.arRelayId=crypto.randomUUID());
+const $=id=>document.getElementById(id), log=s=>{$("log").textContent=new Date().toLocaleTimeString()+" "+s+"\n"+$("log").textContent};
+function url(){return (location.protocol==="https:"?"wss":"ws")+"://"+location.host}
+function manualConnect(){shouldReconnect=true;connect()}
 function connect(){
-  if(ws) ws.close();
-  const proto=location.protocol==="https:"?"wss":"ws";
-  ws=new WebSocket(`${proto}://${location.host}`);
-  statusEl.textContent="Подключение…";
-  ws.onopen=()=>ws.send(JSON.stringify({type:"join",room:room.value,role:role.value}));
-  ws.onmessage=e=>{const m=JSON.parse(e.data); log(JSON.stringify(m)); if(m.type==="joined"){statusEl.textContent=`Подключено: ${m.room} / ${m.role}`;statusEl.className="ok"}};
-  ws.onclose=()=>{statusEl.textContent="Соединение закрыто";statusEl.className="bad"};
-  ws.onerror=()=>{statusEl.textContent="Ошибка соединения";statusEl.className="bad"};
+ clearTimeout(reconnectTimer); if(ws&&ws.readyState<2)ws.close();
+ $("status").textContent="Подключение…";
+ ws=new WebSocket(url());
+ ws.onopen=()=>ws.send(JSON.stringify({type:"join",room:$("room").value,role:$("role").value,clientId}));
+ ws.onmessage=e=>{
+  const m=JSON.parse(e.data);
+  if(m.type==="joined"){$("status").textContent=`Подключено: ${m.room}/${m.role}`;$("status").className="ok";startPing()}
+  if(m.type==="room_stats")$("players").textContent=m.players;
+  if(m.type==="button"){received++;$("received").textContent=received;log(`← ${m.button} #${m.seq} от ${m.clientId.slice(0,6)}`)}
+  if(m.type==="pong_app"){const r=Date.now()-m.clientTs;rtts.push(r);if(rtts.length>100)rtts.shift();$("rtt").textContent=r+" ms";$("avg").textContent=Math.round(rtts.reduce((a,b)=>a+b,0)/rtts.length)+" ms"}
+ };
+ ws.onclose=()=>{$("status").textContent="Нет связи — переподключение…";$("status").className="bad";clearInterval(pingTimer);if(shouldReconnect)reconnectTimer=setTimeout(connect,2000)};
+ ws.onerror=()=>{};
 }
-function press(button){
-  if(!ws||ws.readyState!==1)return log("Сначала подключитесь");
-  const t=performance.now();
-  ws.send(JSON.stringify({type:"button",button}));
-  const old=ws.onmessage;
-  // ACK and remote events remain visible in the normal handler.
-  log("→ "+button);
-}
-</script>
-</body></html>
+function startPing(){clearInterval(pingTimer);pingTimer=setInterval(()=>{if(ws?.readyState===1)ws.send(JSON.stringify({type:"ping_app",id:Date.now(),clientTs:Date.now()}))},1000)}
+function press(button){if(ws?.readyState!==1)return log("Нет соединения");seq++;ws.send(JSON.stringify({type:"button",button,seq,clientTs:Date.now()}));}
+function burst(){let n=0;const t=setInterval(()=>{if(++n>100)return clearInterval(t);press(n%2?"JMI1":"JMI2")},20)}
+function resetStats(){received=0;rtts=[];$("received").textContent=0;$("rtt").textContent="—";$("avg").textContent="—";$("log").textContent=""}
+</script></body></html>

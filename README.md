@@ -1,12 +1,13 @@
-# AR-Games-Relay
+# AR-Games-Relay v0.2
 
-AR Games Relay v0.1 — тестовый интернет-релей для AR Games.
+Диагностическая версия интернет-релея AR Games.
 
-## Render
-- Runtime: Node
-- Build Command: `npm install`
-- Start Command: `npm start`
-- Health Check Path: `/health`
+- WebSocket rooms
+- HOST / PLAYER
+- количество подключённых телефонов
+- RTT текущий и средний
+- автоматическое переподключение
+- тест 100 быстрых импульсов
+- `/health`
 
-После деплоя откройте URL сервиса на ноутбуке и телефоне, укажите одинаковый код комнаты.
-На ноутбуке выберите HOST, на телефоне PLAYER.
+Render: Build `npm install`, Start `node server.js`.
