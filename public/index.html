@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AR Games Relay</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#111;color:#fff;max-width:720px;margin:40px auto;padding:20px}
+.card{background:#1d1d1d;border-radius:18px;padding:22px;margin:14px 0}input,button{font:inherit;padding:14px;border-radius:12px;border:0;margin:5px}
+input{background:#292929;color:#fff;text-transform:uppercase}.go{background:#ffc400;font-weight:800}.b{width:45%;min-height:100px;font-size:24px;font-weight:900}
+#log{white-space:pre-wrap;font-family:monospace;max-height:300px;overflow:auto}.ok{color:#71e58b}.bad{color:#ff7c7c}
+</style>
+</head>
+<body>
+<h1>AR Games Relay <small>v0.1</small></h1>
+<div class="card">
+  <input id="room" value="TEST01" maxlength="8" placeholder="Код комнаты">
+  <select id="role" style="padding:14px;border-radius:12px"><option value="host">Ноутбук / HOST</option><option value="player">Телефон / PLAYER</option></select>
+  <button class="go" onclick="connect()">Подключиться</button>
+  <p id="status">Не подключено</p>
+</div>
+<div class="card">
+  <button class="b" onclick="press('JMI1')">ЖМИ 1</button>
+  <button class="b" onclick="press('JMI2')">ЖМИ 2</button>
+</div>
+<div class="card"><b>События:</b><div id="log"></div></div>
+<script>
+let ws;
+const statusEl=document.getElementById('status'), logEl=document.getElementById('log');
+function log(x){logEl.textContent=new Date().toLocaleTimeString()+"  "+x+"\n"+logEl.textContent}
+function connect(){
+  if(ws) ws.close();
+  const proto=location.protocol==="https:"?"wss":"ws";
+  ws=new WebSocket(`${proto}://${location.host}`);
+  statusEl.textContent="Подключение…";
+  ws.onopen=()=>ws.send(JSON.stringify({type:"join",room:room.value,role:role.value}));
+  ws.onmessage=e=>{const m=JSON.parse(e.data); log(JSON.stringify(m)); if(m.type==="joined"){statusEl.textContent=`Подключено: ${m.room} / ${m.role}`;statusEl.className="ok"}};
+  ws.onclose=()=>{statusEl.textContent="Соединение закрыто";statusEl.className="bad"};
+  ws.onerror=()=>{statusEl.textContent="Ошибка соединения";statusEl.className="bad"};
+}
+function press(button){
+  if(!ws||ws.readyState!==1)return log("Сначала подключитесь");
+  const t=performance.now();
+  ws.send(JSON.stringify({type:"button",button}));
+  const old=ws.onmessage;
+  // ACK and remote events remain visible in the normal handler.
+  log("→ "+button);
+}
+</script>
+</body></html>
