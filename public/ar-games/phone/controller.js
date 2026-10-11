@@ -8,6 +8,8 @@
   try { ui = JSON.parse(params.get('ui') || '{}'); } catch {}
   if (!ui || typeof ui !== 'object' || Array.isArray(ui)) ui = {};
   const nameMode = ['required', 'optional', 'hidden'].includes(ui.nameMode) ? ui.nameMode : 'required';
+  const steeringLayout = ui.layout === 'steering';
+  if (steeringLayout) document.body.classList.add('controller-steering');
   let teams = Array.isArray(ui.teams) && ui.teams.length && ui.teams.length <= 50
     ? ui.teams.filter(team => Number.isSafeInteger(team?.id) && team.id >= 1 && team.id <= 50 && typeof team.label === 'string').slice(0, 50)
     : Array.from({ length: 50 }, (_, index) => ({ id: index + 1, label: 'Команда ' + (index + 1) }));
@@ -18,7 +20,8 @@
   }
   if (typeof ui.brand === 'string' && ui.brand.trim()) {
     $('brand-main').textContent = ui.brand.trim().slice(0, 32);
-    $('brand-suffix').classList.add('hidden');
+    if (typeof ui.brandSecondary === 'string' && ui.brandSecondary.trim()) $('brand-suffix').textContent = ui.brandSecondary.trim().slice(0, 32);
+    else $('brand-suffix').classList.add('hidden');
   }
   if (typeof ui.title === 'string' && ui.title.trim()) {
     $('screen-title').textContent = ui.title.trim().slice(0, 64);
@@ -44,8 +47,15 @@
   });
   for (const descriptor of buttons.slice(0, 8)) {
     if (typeof descriptor?.label !== 'string' || !/^[A-Za-z0-9_.:-]{1,64}$/.test(descriptor.action || '')) continue;
-    const button = element('button', descriptor.label.slice(0, 60));
+    const direction = steeringLayout && descriptor.action.endsWith('.left') ? 'left'
+      : steeringLayout && descriptor.action.endsWith('.right') ? 'right' : '';
+    const button = direction ? element('button', '', 'steering-button') : element('button', descriptor.label.slice(0, 60));
     button.type = 'button';
+    if (direction) {
+      button.setAttribute('aria-label', direction === 'left' ? 'Влево' : 'Вправо');
+      button.append(element('span', direction === 'left' ? '←' : '→', 'steering-arrow'));
+      button.append(element('span', direction === 'left' ? 'ВЛЕВО' : 'ВПРАВО', 'steering-label'));
+    }
     button.onclick = () => { if (client) client.sendCommand(descriptor.action, {}); };
     $('buttons').append(button);
   }
@@ -77,7 +87,6 @@
     client?.stop();
     client = new ARConnect.Client({ ...connection, room, role: 'player', clientId: playerId, gameId: GAME_ID, team: Number($('team').value), capabilities: hub.available(),
       onState: message => { $('connection').textContent = message; $('connection').classList.toggle('online', client.ready); },
-      onStats: stats => { $('delivery').textContent = 'Доставлено: ' + stats.received + ' · в очереди: ' + stats.pending; },
       onGameState: message => { $('game-message').textContent = typeof message.state?.message === 'string' ? message.state.message : 'Игра обновлена'; },
       onEvent: message => { if (message.type === 'joined') client.sendCommand('player.join', { name }); }
     });
@@ -85,6 +94,11 @@
     $('name').disabled = $('room').disabled = $('team').disabled = $('join').disabled = true;
     $('join-form').classList.add('hidden');
     $('controls').classList.remove('hidden');
+    if (steeringLayout) {
+      const chosenTeam = teams.find(team => String(team.id) === $('team').value);
+      $('team-indicator').textContent = chosenTeam?.indicatorLabel || chosenTeam?.label || '';
+      $('team-indicator').classList.remove('hidden');
+    }
     $('sensor-note').classList.add('hidden');
     document.body.classList.add('controller-active');
     showError('');

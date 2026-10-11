@@ -14,7 +14,28 @@
 .controller-active #controls{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
 .controller-active #buttons{flex:1;min-height:0;grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:1fr;margin:0;gap:10px}
 .controller-active #buttons button{min-width:0;min-height:0;height:100%;padding:8px;font-size:clamp(1.35rem,7vw,3.4rem);line-height:1.05;border-radius:18px;touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
-.controller-active #game-message,.controller-active #sensor-state,.controller-active #delivery{flex:none;margin:0;padding:5px 9px;font-size:.72rem;line-height:1.25}
+.controller-active #game-message,.controller-active #sensor-state{flex:none;margin:0;padding:5px 9px;font-size:.72rem;line-height:1.25}
 .controller-active #sensor-buttons,.controller-active #calibrate{flex:none}
 @media(max-width:560px){.controller-active .shell.phone{padding-left:8px;padding-right:8px}.controller-active #buttons{gap:7px}.controller-active #buttons button{font-size:clamp(1.2rem,6.5vw,2rem);border-radius:14px}}
+
+/* Optional two-button driving layout, modeled on the Benzomania LAN controller. */
+.controller-steering{background:radial-gradient(ellipse at 50% -20%,#1b3561,#0b1322 60%);color:#edf3ff}
+.controller-steering .brand{font-size:18px;font-weight:900;font-style:italic;color:#fff}
+.controller-steering .brand span{display:block;color:#62a8ff;font-size:9px;letter-spacing:2px}
+.controller-steering .brand #brand-main{color:#fff}
+.controller-steering .brand #brand-suffix{color:#62a8ff}
+.steering-team{color:#88a8d5;font-size:12px;letter-spacing:2px;text-align:center}
+.controller-steering.controller-active .card{background:transparent;border:0;padding:0 8px}
+.controller-steering.controller-active #team-indicator{display:block!important;flex:none;margin:0 0 8px}
+.controller-steering.controller-active #screen-title{display:block!important;font-size:24px;letter-spacing:3px;text-align:center;margin:0 0 28px}
+.controller-steering.controller-active #controls{flex:none;min-height:0;display:flex}
+.controller-steering.controller-active #buttons{flex:none;min-height:0;grid-template-columns:1fr 1fr;grid-template-rows:1fr;margin:0;gap:14px}
+.controller-steering.controller-active #buttons .steering-button{height:min(39vh,280px);min-height:170px;border:1px solid #3895ff;border-radius:22px;background:linear-gradient(155deg,#1379ee,#0649aa);box-shadow:0 14px 50px #006cff25;color:#fff;padding:8px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:clamp(68px,17vw,120px);font-weight:800;line-height:1;touch-action:none}
+.controller-steering.controller-active #buttons .steering-button:active{transform:scale(.98);background:#3397ff}
+.controller-steering.controller-active #buttons .steering-button:nth-child(2){border-color:#a85cff;background:linear-gradient(155deg,#8139cf,#48228c);box-shadow:0 14px 50px #a642ff22}
+.controller-steering.controller-active #buttons .steering-button:nth-child(2):active{background:#ad6af0}
+.controller-steering.controller-active .steering-arrow{font-size:clamp(68px,17vw,120px)}
+.controller-steering.controller-active .steering-label{font-size:14px;letter-spacing:2px;margin-top:8px}
+.controller-steering.controller-active #game-message,.controller-steering.controller-active #sensor-state:empty,.controller-steering.controller-active #sensor-buttons:empty,.controller-steering.controller-active #calibrate{display:none!important}
+@media(max-width:560px){.controller-steering.controller-active .shell.phone{padding-left:8px;padding-right:8px}.controller-steering.controller-active #buttons{gap:7px}.controller-steering.controller-active #buttons .steering-button{min-height:150px;border-radius:16px}.controller-steering.controller-active #screen-title{margin-bottom:18px}}
 
