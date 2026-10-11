@@ -1,3 +1,4 @@
+Attempting to perform the InitializeDefaultDrives operation on the 'FileSystem' provider failed.
 (function() {
   'use strict';
   const { $, element, identity, GAME_ID, readStored, showError } = ARQuizUI;
@@ -97,7 +98,19 @@
       button.append(element('span', direction === 'left' ? '←' : '→', 'steering-arrow'));
       button.append(element('span', direction === 'left' ? 'ВЛЕВО' : 'ВПРАВО', 'steering-label'));
     }
-    button.onclick = () => { if (client) client.sendCommand(descriptor.action, {}); };
+    let lastPointerCommand = 0;
+    const sendAction = () => { if (client) client.sendCommand(descriptor.action, {}); };
+    button.addEventListener('pointerdown', event => {
+      if (event.isPrimary === false || event.button !== undefined && event.button !== 0) return;
+      event.preventDefault();
+      lastPointerCommand = performance.now();
+      sendAction();
+    });
+    button.addEventListener('click', event => {
+      // Touch and pen already sent on pointerdown; keep click for keyboard and assistive input.
+      if (event.detail > 0 && performance.now() - lastPointerCommand < 800) return;
+      sendAction();
+    });
     $('buttons').append(button);
   }
   for (const channel of requiredSensors) {
@@ -128,7 +141,16 @@
     client?.stop();
     client = new ARConnect.Client({ ...connection, room, role: 'player', clientId: playerId, gameId: GAME_ID, team: Number($('team').value), capabilities: hub.available(),
       onState: message => { $('connection').textContent = message; $('connection').classList.toggle('online', client.ready); },
-      onGameState: message => { $('game-message').textContent = typeof message.state?.message === 'string' ? message.state.message : 'Игра обновлена'; },
+      onGameState: message => {
+        const state = message.state;
+        if (state?.activeTeam === 'blue' || state?.activeTeam === 'purple') {
+          const ownTeam = Number($('team').value) === 1 ? 'blue' : 'purple';
+          $('game-message').textContent = state.paused ? 'Заезд на паузе'
+            : !state.raceRunning ? 'Матч готовится к заезду'
+              : state.activeTeam === ownTeam ? 'Ваш заезд — управление активно'
+                : 'Сейчас едет другая команда. Ожидайте своего заезда.';
+        } else $('game-message').textContent = typeof state?.message === 'string' ? state.message : 'Игра обновлена';
+      },
       onEvent: message => { if (message.type === 'joined') client.sendCommand('player.join', { name }); }
     });
     localStorage.setItem(profileKey, JSON.stringify({ name: nameMode === 'hidden' ? '' : name, room, team: Number($('team').value) }));
