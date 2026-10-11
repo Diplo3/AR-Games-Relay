@@ -143,9 +143,13 @@
       onGameState: message => {
         const state = message.state;
         if (state?.activeTeam === 'blue' || state?.activeTeam === 'purple') {
-          const ownTeam = Number($('team').value) === 1 ? 'blue' : 'purple';
-          $('game-message').textContent = state.paused ? 'Заезд на паузе'
-            : !state.raceRunning ? 'Матч готовится к заезду'
+          const ownTeam = client?.team === 1 ? 'blue' : 'purple';
+          const racePhase = state.phase === undefined ? state.raceRunning === true : state.phase === 'race' && state.raceRunning === true;
+          $('game-message').textContent = state.paused && racePhase ? 'Заезд на паузе'
+            : !racePhase ? state.phase === 'rules' ? 'Ожидайте начала заезда'
+              : state.phase === 'intro' ? 'Приготовьтесь к старту'
+                : state.phase === 'results' ? 'Заезд завершён. Ожидайте следующего заезда.'
+                  : 'Матч готовится к заезду'
               : state.activeTeam === ownTeam ? 'Ваш заезд — управление активно'
                 : 'Сейчас едет другая команда. Ожидайте своего заезда.';
         } else $('game-message').textContent = typeof state?.message === 'string' ? state.message : 'Игра обновлена';
