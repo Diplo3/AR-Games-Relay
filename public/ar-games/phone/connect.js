@@ -29,9 +29,8 @@
    this.mode=this.mode||'internet';this.configFetch=this.fetch||globalThis.fetch;this.endpoint=this.url||null;this.configFlight=null;
    this.key=`ar-v3:${this.room}:${this.role}:${this.clientId}`;
    let saved;try{saved=JSON.parse(this.storage?.getItem(this.key)||'null');}catch{}
-   this.sessionId=saved?.sessionId||globalThis.crypto.randomUUID();this.seq=saved?.seq||0;
-   const requestedTeam=Number(this.team??saved?.team??1);this.team=Number.isSafeInteger(requestedTeam)&&requestedTeam>=1&&requestedTeam<=50?requestedTeam:1;this.queue=saved?.queue||[];this.seen=new Map(saved?.seen||[]);
-   this.stats=saved?.stats||{sent:0,received:0,lost:0,duplicates:0,reconnects:0,rttCount:0,rttTotal:0,rttMin:null,rttMax:null,rtt:null};this.gameRevisions=new Map(saved?.gameRevisions||[]);this.publishedStates=new Map(saved?.publishedStates||[]);this.relayEpoch=saved?.relayEpoch||null;
+   const requestedTeam=Number(this.team??saved?.team??1);this.team=Number.isSafeInteger(requestedTeam)&&requestedTeam>=1&&requestedTeam<=50?requestedTeam:1;const teamChanged=this.role==='player'&&saved?.team!==undefined&&Number(saved.team)!==this.team;this.sessionId=teamChanged?globalThis.crypto.randomUUID():(saved?.sessionId||globalThis.crypto.randomUUID());this.seq=teamChanged?0:(saved?.seq||0);this.queue=teamChanged?[]:(saved?.queue||[]);this.seen=new Map(saved?.seen||[]);
+   this.stats=saved?.stats||{sent:0,received:0,lost:0,duplicates:0,reconnects:0,rttCount:0,rttTotal:0,rttMin:null,rttMax:null,rtt:null};if(teamChanged&&Array.isArray(saved?.queue))this.stats.lost+=saved.queue.length;this.gameRevisions=new Map(saved?.gameRevisions||[]);this.publishedStates=new Map(saved?.publishedStates||[]);this.relayEpoch=saved?.relayEpoch||null;
    this.running=false;this.ready=false;this.attempt=0;this.everJoined=false;this.sensorSeq=0;
   }
   persist(){this.storage?.setItem(this.key,JSON.stringify({sessionId:this.sessionId,seq:this.seq,team:this.team,queue:this.queue,seen:[...this.seen],stats:this.stats,gameRevisions:[...this.gameRevisions],publishedStates:[...this.publishedStates],relayEpoch:this.relayEpoch}));this.onStats({...this.stats,pending:this.queue.length,accepted:this.queue.filter(e=>e.accepted).length});}
