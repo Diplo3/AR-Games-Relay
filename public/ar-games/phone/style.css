@@ -42,6 +42,6 @@
 .controller-steering.controller-active #buttons .steering-button:nth-child(2):active{background:#ad6af0}
 .controller-steering.controller-active .steering-arrow{font-size:clamp(68px,17vw,120px)}
 .controller-steering.controller-active .steering-label{font-size:14px;letter-spacing:2px;margin-top:8px}
-.controller-steering.controller-active #game-message,.controller-steering.controller-active #sensor-state:empty,.controller-steering.controller-active #sensor-buttons:empty,.controller-steering.controller-active #calibrate{display:none!important}
+.controller-steering.controller-active #sensor-state:empty,.controller-steering.controller-active #sensor-buttons:empty,.controller-steering.controller-active #calibrate{display:none!important}
 @media(max-width:560px){.controller-steering.controller-active .shell.phone{padding-left:8px;padding-right:8px}.controller-steering.controller-active #buttons{gap:7px}.controller-steering.controller-active #buttons .steering-button{min-height:150px;border-radius:16px}.controller-steering.controller-active #screen-title{margin-bottom:18px}}
 
