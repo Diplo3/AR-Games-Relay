@@ -76,3 +76,6 @@ v0.3 использует очередь на телефоне, повторну
 Для LAN укажите совместимый локальный WebSocket URL в `endpoints.lan`; выбранный режим задаётся настройкой, а не изменением кода игры. Если у игры собственный сетевой протокол, напишите один адаптер при первой интеграции. Исходников Electron-игры в этом репозитории нет, поэтому пример нужно перенести в игру после получения её кода. QR для комнаты формируется в игре из ссылки на страницу PLAYER.
 
 Подробности сообщений: [PROTOCOL.md](PROTOCOL.md). Обновление существующего сервиса и откат: [DEPLOYMENT.md](DEPLOYMENT.md).
+# Short license codes
+
+Owner setup and deployment notes for the 25-character online request and activation codes are in [SHORT-CODES-SETUP.md](./SHORT-CODES-SETUP.md). The SQL schema is in `database/license-short-codes.sql`.
