@@ -30,7 +30,7 @@
    this.key=`ar-v3:${this.room}:${this.role}:${this.clientId}`;
    let saved;try{saved=JSON.parse(this.storage?.getItem(this.key)||'null');}catch{}
    this.sessionId=saved?.sessionId||globalThis.crypto.randomUUID();this.seq=saved?.seq||0;
-   const requestedTeam=Number(saved?.team??this.team??1);this.team=Number.isSafeInteger(requestedTeam)&&requestedTeam>=1&&requestedTeam<=50?requestedTeam:1;this.queue=saved?.queue||[];this.seen=new Map(saved?.seen||[]);
+   const requestedTeam=Number(this.team??saved?.team??1);this.team=Number.isSafeInteger(requestedTeam)&&requestedTeam>=1&&requestedTeam<=50?requestedTeam:1;this.queue=saved?.queue||[];this.seen=new Map(saved?.seen||[]);
    this.stats=saved?.stats||{sent:0,received:0,lost:0,duplicates:0,reconnects:0,rttCount:0,rttTotal:0,rttMin:null,rttMax:null,rtt:null};this.gameRevisions=new Map(saved?.gameRevisions||[]);this.publishedStates=new Map(saved?.publishedStates||[]);this.relayEpoch=saved?.relayEpoch||null;
    this.running=false;this.ready=false;this.attempt=0;this.everJoined=false;this.sensorSeq=0;
   }
