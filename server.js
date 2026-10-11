@@ -12,9 +12,12 @@ function createRelay() {
  const broadcast = (r,m,except) => { for(const w of r.sockets) if(w !== except) send(w,m); };
  const host = r => [...r.sockets].find(w => w.role === 'host');
  function presence(r) {
-  broadcast(r,{type:'room_stats',players:[...r.devices.values()].filter(d=>d.online).length,clients:r.sockets.size,
-   hostOnline:!!host(r),epoch,serverTs:Date.now(),devices:[...r.devices.values()].map(d=>({...d,
-    pending:[...r.events.values()].filter(e=>e.event.clientId===d.clientId&&!e.delivered).length}))});
+  if(r.presenceTimer)return;
+  r.presenceTimer=setTimeout(()=>{
+   r.presenceTimer=null;
+   broadcast(r,{type:'room_stats',players:[...r.devices.values()].filter(d=>d.online).length,clients:r.sockets.size,
+    hostOnline:!!host(r),epoch,serverTs:Date.now(),devices:[...r.devices.values()].map(d=>({...d}))});
+  },100);
  }
  function cleanup(w) {
   const r=rooms.get(w.room); if(!r)return;
@@ -40,7 +43,7 @@ function createRelay() {
     cleanup(w);Object.assign(w,{room:code,role,clientId:id,relayProtocol:m.protocol===3?3:2,sessionId:String(m.sessionId||'legacy').slice(0,64),team:m.team===2?2:1});
     if(role==='player'){
      for(const old of [...r.sockets])if(old.role==='player'&&old.clientId===id){cleanup(old);old.close(4001,'replaced');}
-     let d=r.devices.get(id);if(!d)r.devices.set(id,d={clientId:id,accepted:0,received:0,duplicates:0,reconnects:0});else d.reconnects++;
+     let d=r.devices.get(id);if(!d)r.devices.set(id,d={clientId:id,accepted:0,received:0,duplicates:0,reconnects:0,pending:0});else d.reconnects++;
      Object.assign(d,{team:w.team,online:true,lastSeen:Date.now()});
     }
     r.sockets.add(w);r.touched=Date.now();send(w,{type:'joined',room:code,role,clientId:id,team:w.team,epoch,protocol:3,retentionMs,serverTs:Date.now()});presence(r);
@@ -53,7 +56,7 @@ function createRelay() {
    }
    if(m.type==='host_ack'){
     if(w.role!=='host'||w.relayProtocol!==3)return error('host_required');const e=r.events.get(m.eventId);if(!e)return;
-    if(!e.delivered){e.delivered=true;r.devices.get(e.event.clientId).received++;}
+    if(!e.delivered){e.delivered=true;const d=r.devices.get(e.event.clientId);d.received++;d.pending=Math.max(0,d.pending-1);}
     for(const s of r.sockets)if(s.role==='player'&&s.clientId===e.event.clientId)send(s,{type:'delivered',eventId:m.eventId,seq:e.event.seq,sessionId:e.event.sessionId});
     return presence(r);
    }
@@ -67,12 +70,12 @@ function createRelay() {
    const eventId=JSON.stringify([w.clientId,w.sessionId,m.seq]),d=r.devices.get(w.clientId);d.lastSeen=Date.now();
    let e=r.events.get(eventId),duplicate=!!e;
    if(e){if(e.event.button!==m.button||e.event.team!==w.team)return error('sequence_conflict');d.duplicates++;}
-   else{if(r.events.size>=20000)return error('command_capacity');e={event:{type:'button',eventId,clientId:w.clientId,sessionId:w.sessionId,seq:m.seq,team:w.team,button:m.button,clientTs:m.clientTs,serverTs:Date.now(),role:'player'},delivered:false,lastAttempt:0};r.events.set(eventId,e);d.accepted++;}
+   else{if(r.events.size>=20000)return error('command_capacity');e={event:{type:'button',eventId,clientId:w.clientId,sessionId:w.sessionId,seq:m.seq,team:w.team,button:m.button,clientTs:m.clientTs,serverTs:Date.now(),role:'player'},delivered:false,lastAttempt:0};r.events.set(eventId,e);d.accepted++;d.pending++;}
    send(w,{type:'ack',seq:m.seq,sessionId:w.sessionId,eventId,clientTs:m.clientTs,serverTs:Date.now(),duplicate,delivered:e.delivered});
    if(e.delivered)send(w,{type:'delivered',eventId,seq:m.seq,sessionId:w.sessionId});else deliver(r,e);presence(r);
   });w.on('close',()=>cleanup(w));
  });
- const retry=setInterval(()=>{const now=Date.now();for(const [code,r]of rooms){for(const [id,e]of r.events){if(now-e.event.clientTs>retentionMs)r.events.delete(id);else if(!e.delivered&&now-e.lastAttempt>2000)deliver(r,e);}if(!r.sockets.size&&now-r.touched>retentionMs)rooms.delete(code);}},1000);
+ const retry=setInterval(()=>{const now=Date.now();for(const [code,r]of rooms){for(const [id,e]of r.events){if(now-e.event.clientTs>retentionMs){if(!e.delivered){const d=r.devices.get(e.event.clientId);if(d)d.pending=Math.max(0,d.pending-1);}r.events.delete(id);}else if(!e.delivered&&now-e.lastAttempt>2000)deliver(r,e);}if(!r.sockets.size&&now-r.touched>retentionMs){clearTimeout(r.presenceTimer);rooms.delete(code);}}},1000);
  const heartbeat=setInterval(()=>{for(const w of wss.clients){if(!w.isAlive)w.terminate();else{w.isAlive=false;w.ping();}}},25000);
  app.use(express.static(path.join(__dirname,'public')));
  app.get('/health',(_q,res)=>res.json({ok:true,service:'AR Games Relay',version:'0.3.0',clients:wss.clients.size,epoch}));
