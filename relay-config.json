@@ -9,6 +9,9 @@
     "internet": "wss://ar-games-relay.onrender.com",
     "lan": null
   },
+  "assets": {
+    "phoneBaseUrl": "https://ar-games-relay.onrender.com/ar-games/phone/"
+  },
   "limits": {
     "maxPhonesPerRoom": 50,
     "maxTeamsPerRoom": 50,
