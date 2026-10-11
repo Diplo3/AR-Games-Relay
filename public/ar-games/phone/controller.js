@@ -4,10 +4,32 @@
   const params = new URLSearchParams(location.search);
   const profileKey = 'ar-controller:' + GAME_ID + ':' + identity('player');
   const saved = readStored(profileKey, {});
+  let ui = {};
+  try { ui = JSON.parse(params.get('ui') || '{}'); } catch {}
+  if (!ui || typeof ui !== 'object' || Array.isArray(ui)) ui = {};
+  const nameMode = ['required', 'optional', 'hidden'].includes(ui.nameMode) ? ui.nameMode : 'required';
+  let teams = Array.isArray(ui.teams) && ui.teams.length && ui.teams.length <= 50
+    ? ui.teams.filter(team => Number.isSafeInteger(team?.id) && team.id >= 1 && team.id <= 50 && typeof team.label === 'string').slice(0, 50)
+    : Array.from({ length: 50 }, (_, index) => ({ id: index + 1, label: 'Команда ' + (index + 1) }));
+  if (!teams.length) teams = Array.from({ length: 50 }, (_, index) => ({ id: index + 1, label: 'Команда ' + (index + 1) }));
+  const teamIds = new Set(teams.map(team => team.id));
+  for (const [key, variable] of [['accent', '--accent'], ['background', '--bg'], ['panel', '--panel']]) {
+    if (/^#[0-9a-f]{6}$/i.test(ui.theme?.[key] || '')) document.documentElement.style.setProperty(variable, ui.theme[key]);
+  }
+  if (typeof ui.brand === 'string' && ui.brand.trim()) {
+    $('brand-main').textContent = ui.brand.trim().slice(0, 32);
+    $('brand-suffix').classList.add('hidden');
+  }
+  if (typeof ui.title === 'string' && ui.title.trim()) {
+    $('screen-title').textContent = ui.title.trim().slice(0, 64);
+    document.title = ui.title.trim().slice(0, 64);
+  }
+  $('name-field').classList.toggle('hidden', nameMode === 'hidden');
+  $('name').required = nameMode === 'required';
   $('room').value = params.get('room') || saved.room || '';
-  $('name').value = saved.name || '';
-  for (let team = 1; team <= 50; team++) $('team').append(new Option('Команда ' + team, String(team)));
-  $('team').value = String(saved.team || 1);
+  $('name').value = nameMode === 'hidden' ? '' : saved.name || '';
+  for (const team of teams) $('team').append(new Option(team.label.slice(0, 32), String(team.id)));
+  $('team').value = String(teamIds.has(saved.team) ? saved.team : teams[0].id);
   let client, buttons;
   try { buttons = JSON.parse(params.get('buttons') || 'null'); } catch {}
   if (!Array.isArray(buttons)) buttons = [{ label: 'ЖМИ 1', action: 'button.one' }, { label: 'ЖМИ 2', action: 'button.two' }];
@@ -41,8 +63,10 @@
   $('join-form').onsubmit = event => {
     event.preventDefault();
     const room = $('room').value.trim().toUpperCase();
-    const name = $('name').value.trim();
-    if (!/^[A-Z0-9]{4,8}$/.test(room) || !name) return showError('Введите имя и код комнаты из 4–8 букв или цифр.');
+    const playerId = identity('player');
+    const name = nameMode === 'hidden' ? 'Игрок ' + playerId.slice(-4) : $('name').value.trim() || 'Игрок ' + playerId.slice(-4);
+    if (!/^[A-Z0-9]{4,8}$/.test(room)) return showError('Введите код комнаты из 4–8 латинских букв или цифр.');
+    if (nameMode === 'required' && !$('name').value.trim()) return showError('Введите имя.');
     const mode = params.get('mode') === 'lan' ? 'lan' : 'internet';
     let connection;
     if (mode === 'lan') {
@@ -51,17 +75,21 @@
       connection = { mode, url: address };
     } else connection = { mode, configUrl: [params.get('config') || ARConnect.defaultConfigUrl, location.origin + '/relay-config.json'] };
     client?.stop();
-    client = new ARConnect.Client({ ...connection, room, role: 'player', clientId: identity('player'), gameId: GAME_ID, team: Number($('team').value), capabilities: hub.available(),
+    client = new ARConnect.Client({ ...connection, room, role: 'player', clientId: playerId, gameId: GAME_ID, team: Number($('team').value), capabilities: hub.available(),
       onState: message => { $('connection').textContent = message; $('connection').classList.toggle('online', client.ready); },
       onStats: stats => { $('delivery').textContent = 'Доставлено: ' + stats.received + ' · в очереди: ' + stats.pending; },
       onGameState: message => { $('game-message').textContent = typeof message.state?.message === 'string' ? message.state.message : 'Игра обновлена'; },
       onEvent: message => { if (message.type === 'joined') client.sendCommand('player.join', { name }); }
     });
-    localStorage.setItem(profileKey, JSON.stringify({ name, room, team: Number($('team').value) }));
+    localStorage.setItem(profileKey, JSON.stringify({ name: nameMode === 'hidden' ? '' : name, room, team: Number($('team').value) }));
     $('name').disabled = $('room').disabled = $('team').disabled = $('join').disabled = true;
+    $('join-form').classList.add('hidden');
     $('controls').classList.remove('hidden');
+    $('sensor-note').classList.add('hidden');
+    document.body.classList.add('controller-active');
     showError('');
     client.start();
   };
   window.addEventListener('beforeunload', () => { hub.stop(); client?.stop(); });
 })();
+
