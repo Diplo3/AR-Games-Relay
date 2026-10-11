@@ -15,19 +15,21 @@ test('v0.2 contract: 100 commands, 100 broadcasts and acknowledgements',async t=
  await wait(()=>h.messages.filter(m=>m.type==='button').length===100&&p.messages.filter(m=>m.type==='ack').length===100);
  assert.deepEqual(h.messages.filter(m=>m.type==='button').map(m=>m.seq),Array.from({length:100},(_,i)=>i+1));h.ws.close();p.ws.close();
 });
-test('50 phones / two teams: 5000 commands and 1000 sensor samples reach HOST',async t=>{
- const {url}=await fixture(t);const commands=[],sensors=[];const h=sdk(t,url,{role:'host',onCommand:m=>commands.push(m),onSensor:m=>sensors.push(m)});await wait(()=>h.ready);
- const phones=Array.from({length:50},(_,i)=>sdk(t,url,{role:'player',team:i%2+1,gameId:'arcade.future'}));await wait(()=>phones.every(p=>p.ready));
+test('50 phones / 50 teams: 5000 commands and 1000 sensor samples reach HOST',async t=>{
+ const {url}=await fixture(t);const commands=[],sensors=[],hostRosters=[],playerRosters=[];const h=sdk(t,url,{role:'host',onCommand:m=>commands.push(m),onSensor:m=>sensors.push(m),onEvent:m=>{if(m.type==='room_stats')hostRosters.push(m);}});await wait(()=>h.ready);
+ const phones=Array.from({length:50},(_,i)=>sdk(t,url,{role:'player',team:i+1,gameId:'arcade.future',onEvent:m=>{if(i===0&&m.type==='room_stats')playerRosters.push(m);}}));await wait(()=>phones.every(p=>p.ready));
+ await wait(()=>hostRosters.some(m=>m.devices?.length===50)&&playerRosters.length>0);assert.equal(playerRosters.at(-1).devices,undefined);
  for(const p of phones)for(let i=0;i<100;i++)p.press(i%2?'JMI2':'JMI1');
  await wait(()=>phones.every(p=>p.stats.received===100),60000);
  assert.equal(commands.length,5000);assert.equal(new Set(commands.map(m=>m.eventId)).size,5000);
- assert.equal(commands.filter(m=>m.team===1).length,2500);assert.equal(commands.filter(m=>m.team===2).length,2500);
+ assert.deepEqual([...new Set(commands.map(m=>m.team))].sort((a,b)=>a-b),Array.from({length:50},(_,i)=>i+1));
+ for(let team=1;team<=50;team++)assert.equal(commands.filter(m=>m.team===team).length,100);
  assert.ok(commands.every(m=>m.type==='command'&&m.gameId==='arcade.future'&&m.action==='button.press'));
  assert.equal(commands.filter(m=>m.payload.button==='JMI1').length,2500);assert.equal(commands.filter(m=>m.payload.button==='JMI2').length,2500);
  for(const p of phones){assert.equal(p.queue.length,0);assert.equal(p.stats.lost,0);}
  for(const p of phones)for(let i=0;i<20;i++)assert.equal(p.sendSensor('gyroscope',{x:i/100,y:p.team,z:0.3}),true);
  await wait(()=>sensors.length===1000);assert.equal(new Set(sensors.map(m=>`${m.clientId}:${m.seq}`)).size,1000);
- assert.equal(sensors.filter(m=>m.team===1).length,500);assert.ok(sensors.every(m=>m.channel==='gyroscope'&&m.gameId==='arcade.future'));
+ assert.deepEqual([...new Set(sensors.map(m=>m.team))].sort((a,b)=>a-b),Array.from({length:50},(_,i)=>i+1));assert.ok(sensors.every(m=>m.channel==='gyroscope'&&m.gameId==='arcade.future'));
 });
 test('player reconnect, offline queue, preserved team/session and reload',async t=>{
  const {url}=await fixture(t),commands=[];const h=sdk(t,url,{role:'host',onCommand:m=>commands.push(m)});const storage=memory();
@@ -44,22 +46,42 @@ test('HOST outage, ACK loss and persisted deduplication',async t=>{
  h=sdk(t,url,{role:'host',clientId:'host',storage,onCommand:m=>commands.push(m)});await wait(()=>p.stats.received===2);
  assert.equal(commands.length,2);assert.ok(h.stats.duplicates>=1);assert.equal(p.queue.length,0);
 });
+test('async HOST handler ACKs only after success and retries after a failure',async t=>{
+ const {url}=await fixture(t),commands=[],errors=[];let fail=true;
+ const h=sdk(t,url,{role:'host',onCommand:async m=>{if(fail){fail=false;throw Error('storage unavailable');}await new Promise(r=>setTimeout(r,30));commands.push(m);},onState:m=>errors.push(m)});
+ const p=sdk(t,url,{role:'player'});await wait(()=>h.ready&&p.ready);p.press('JMI1');
+ await wait(()=>errors.some(m=>m.includes('storage unavailable')));assert.equal(p.stats.received,0);assert.equal(commands.length,0);
+ await wait(()=>p.stats.received===1,10000);assert.equal(commands.length,1);assert.equal(p.queue.length,0);
+});
 test('room isolation, unauthorized ACK, malformed messages, expired commands',async t=>{
  const {url}=await fixture(t);const h=await raw(url,{role:'host',clientId:'host',room:'OTHER1'});const p=await raw(url,{protocol:3,sessionId:'s',team:2});
  p.ws.send('null');p.ws.send(JSON.stringify({type:'host_ack',eventId:'fake'}));
  p.ws.send(JSON.stringify({type:'button',button:'JMI1',seq:1,sessionId:'s',clientTs:Date.now()-1800001}));
  await wait(()=>p.messages.filter(m=>m.type==='error').length===3);assert.equal(h.messages.filter(m=>m.type==='button').length,0);p.ws.close();h.ws.close();
 });
+test('per-device command flood protection returns a retryable rate limit',async t=>{
+ const {r,url}=await fixture(t),h=await raw(url,{role:'host',clientId:'host'}),p=await raw(url,{protocol:3,sessionId:'rate-session'});
+ const socket=[...r.wss.clients].find(w=>w.role==='player');socket.commandWindow=Date.now();socket.commandCount=200;
+ p.ws.send(JSON.stringify({type:'button',button:'JMI1',seq:1,sessionId:'rate-session',clientTs:Date.now()}));
+ await wait(()=>p.messages.some(m=>m.type==='error'&&m.message==='command_rate_limited'));
+ assert.equal(h.messages.filter(m=>m.type==='button').length,0);assert.equal(p.messages.filter(m=>m.type==='ack').length,0);p.ws.close();h.ws.close();
+});
 test('relay restart: pending command replayed without a second HOST action',async t=>{
  let r=createRelay();await new Promise(resolve=>r.server.listen(0,'127.0.0.1',resolve));const port=r.server.address().port;
- t.after(()=>r.close());const url=`ws://127.0.0.1:${port}`,commands=[];
- const h=sdk(t,url,{role:'host',onCommand:m=>commands.push(m)}),p=sdk(t,url,{role:'player',team:2});await wait(()=>h.ready&&p.ready);
+ t.after(()=>r.close());const url=`ws://127.0.0.1:${port}`,commands=[],states=[];
+ const h=sdk(t,url,{role:'host',onCommand:m=>commands.push(m),gameId:'quiz.live'}),p=sdk(t,url,{role:'player',team:2,gameId:'quiz.live',onGameState:m=>states.push(m)});await wait(()=>h.ready&&p.ready);
+ h.publishState({phase:'playing',round:4});await wait(()=>states.length===1);
  const send=h.send.bind(h);h.send=m=>{if(m.type!=='host_ack')send(m);};p.press('JMI1');await wait(()=>commands.length===1);
  await r.close();h.send=send;r=createRelay();await new Promise(resolve=>r.server.listen(port,'127.0.0.1',resolve));
- await wait(()=>p.stats.received===1);assert.equal(commands.length,1);assert.equal(p.queue.length,0);assert.equal(p.team,2);
+ await wait(()=>p.stats.received===1&&states.length===2);assert.equal(states[1].state.phase,'playing');assert.equal(states[1].state.round,4);assert.equal(commands.length,1);assert.equal(p.queue.length,0);assert.equal(p.team,2);
 });
 test('expired local queue counts loss; live pending commands are not lost',async t=>{
  const p=new Client({url:'ws://unused',room:'TEST01',role:'player',clientId:'phone',storage:memory()});p.press('JMI1');assert.equal(p.stats.lost,0);assert.equal(p.queue.length,1);p.queue[0].clientTs=Date.now()-1800001;p.flush();assert.equal(p.stats.lost,1);assert.equal(p.queue.length,0);
+});
+test('journal capacity error removes a rejected command from the local retry queue',async t=>{
+ const {r,url}=await fixture(t),p=sdk(t,url,{role:'player'});await wait(()=>p.ready);
+ const events=r.rooms.get('TEST01').events;for(let i=0;i<20000;i++)events.set(`reserved-${i}`,{event:{clientTs:Date.now(),clientId:'reserved'},delivered:true,lastAttempt:Date.now()});
+ p.press('JMI1');await wait(()=>p.stats.lost===1);assert.equal(p.queue.length,0);
 });
 test('remote config switches endpoint without game-code changes and uses cache offline',async()=>{
  const data=new Map(),storage={getItem:k=>data.get(k),setItem:(k,v)=>data.set(k,v)};
@@ -73,8 +95,8 @@ test('remote config switches endpoint without game-code changes and uses cache o
 });
 test('health reports default 50 phone capacity and config manifest is served',async t=>{
  const {r}=await fixture(t);const base=`http://127.0.0.1:${r.server.address().port}`;
- const health=await fetch(base+'/health').then(x=>x.json());assert.equal(health.maxPhones,50);assert.equal(health.version,'0.4.0');
- const config=await fetch(base+'/relay-config.json').then(x=>x.json());assert.equal(config.limits.maxPhonesPerRoom,50);
+ const health=await fetch(base+'/health').then(x=>x.json());assert.equal(health.maxPhones,50);assert.equal(health.maxTeams,50);assert.equal(health.maxCommandsPerSecond,200);assert.equal(health.version,'0.4.0');
+ const config=await fetch(base+'/relay-config.json').then(x=>x.json());assert.equal(config.limits.maxPhonesPerRoom,50);assert.equal(config.limits.maxTeamsPerRoom,50);assert.equal(config.limits.maxCommandsPerDevicePerSecond,200);
 });
 test('future game actions carry game id and structured payload through the stable protocol',async t=>{
  const {url}=await fixture(t),actions=[];const h=sdk(t,url,{role:'host',gameId:'racing.next',onCommand:m=>actions.push(m)});
@@ -82,6 +104,22 @@ test('future game actions carry game id and structured payload through the stabl
  assert.equal(p.sendCommand('race.lap.finished',{lap:3,elapsedMs:60421,checkpoint:'C7'}),true);
  await wait(()=>actions.length===1&&p.stats.received===1);
  assert.deepEqual({gameId:actions[0].gameId,action:actions[0].action,payload:actions[0].payload,team:actions[0].team},{gameId:'racing.next',action:'race.lap.finished',payload:{lap:3,elapsedMs:60421,checkpoint:'C7'},team:1});
+});
+test('HOST can publish room/team game state and reconnecting players receive current snapshots',async t=>{
+ const {url}=await fixture(t),states1=[],states50=[],rosters=[],storage=memory(),host=sdk(t,url,{role:'host',gameId:'quiz.live',onEvent:m=>{if(m.type==='room_stats')rosters.push(m);}});
+ const p1=sdk(t,url,{role:'player',gameId:'quiz.live',team:1,onGameState:m=>states1.push(m)});
+ const p50=sdk(t,url,{role:'player',gameId:'quiz.live',team:50,clientId:'team-50',storage,capabilities:['orientation','gyroscope'],onGameState:m=>states50.push(m)});
+ await wait(()=>host.ready&&p1.ready&&p50.ready);
+ await wait(()=>rosters.some(m=>m.devices.some(d=>d.clientId==='team-50'&&d.capabilities?.includes('gyroscope'))));
+ const lobby={phase:'lobby',round:0,teams:Array.from({length:50},(_,i)=>({id:i+1,score:0,ready:false}))};
+ assert.equal(host.publishState(lobby),true);await wait(()=>states1.length===1&&states50.length===1);
+ assert.equal(host.publishState({phase:'question',questionId:'q1',prompt:'Выберите ответ',choices:['A','B','C'],deadlineAt:Date.now()+20000},{team:50}),true);
+ await wait(()=>states50.length===2);assert.equal(states1.length,1);
+ assert.equal(host.publishState({privateFeedback:'Ответ принят'},{clientId:'team-50'}),true);await wait(()=>states50.length===3);assert.equal(states1.length,1);
+ assert.equal(p50.publishState({},{}),false);
+ p50.stop();const rejoined=sdk(t,url,{role:'player',gameId:'quiz.live',team:50,clientId:'team-50',storage,onGameState:m=>states50.push(m)});
+ await wait(()=>rejoined.ready&&states50.length===6);assert.equal(states50[3].state.phase,'lobby');assert.equal(states50[4].state.phase,'question');assert.equal(states50[5].state.privateFeedback,'Ответ принят');
+ assert.deepEqual([states50[4].team,states50[4].revision],[50,1]);assert.equal(states50[5].clientId,'team-50');
 });
 test('client switches relay endpoints from the remote manifest and keeps session',async t=>{
  class FakeSocket{

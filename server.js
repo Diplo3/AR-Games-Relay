@@ -8,17 +8,20 @@ function createRelay() {
  const app = express(), server = http.createServer(app);
  const wss = new WebSocketServer({ server, maxPayload: 16384 });
  const rooms = new Map(), epoch = randomUUID(), retentionMs = 1800000;
- const configuredPhoneLimit=Number.parseInt(process.env.MAX_PHONES_PER_ROOM,10);
+ const configuredPhoneLimit=Number.parseInt(process.env.MAX_PHONES_PER_ROOM,10),configuredCommandLimit=Number.parseInt(process.env.MAX_COMMANDS_PER_SECOND,10),maxTeams=50;
  const maxPhones=Math.min(100,Number.isInteger(configuredPhoneLimit)&&configuredPhoneLimit>0?configuredPhoneLimit:50);
+ const maxCommandsPerSecond=Math.min(1000,Number.isInteger(configuredCommandLimit)&&configuredCommandLimit>0?configuredCommandLimit:200);
  const send = (w,m) => { if(w?.readyState === WebSocket.OPEN) w.send(JSON.stringify(m)); };
+ const sendRaw=(w,payload)=>{if(w?.readyState===WebSocket.OPEN)w.send(payload);};
  const broadcast = (r,m,except) => { for(const w of r.sockets) if(w !== except) send(w,m); };
  const host = r => [...r.sockets].find(w => w.role === 'host');
  function presence(r) {
   if(r.presenceTimer)return;
   r.presenceTimer=setTimeout(()=>{
    r.presenceTimer=null;
-   broadcast(r,{type:'room_stats',players:[...r.devices.values()].filter(d=>d.online).length,clients:r.sockets.size,
-    hostOnline:!!host(r),epoch,serverTs:Date.now(),devices:[...r.devices.values()].map(d=>({...d}))});
+   const common={type:'room_stats',players:[...r.devices.values()].filter(d=>d.online).length,clients:r.sockets.size,hostOnline:!!host(r),epoch,serverTs:Date.now()};
+   const playerPayload=JSON.stringify(common),hostPayload=JSON.stringify({...common,devices:[...r.devices.values()].map(d=>({...d}))});
+   for(const w of r.sockets)sendRaw(w,w.role==='host'?hostPayload:playerPayload);
   },100);
  }
  function cleanup(w) {
@@ -38,20 +41,37 @@ function createRelay() {
     const code=String(m.room||'').toUpperCase().replace(/[^A-Z0-9]/g,'').slice(0,8);
     if(code.length<4)return error('room_required');
     const role=m.role==='host'?'host':'player';let r=rooms.get(code);
-    if(!r){if(rooms.size>=100)return error('room_capacity');rooms.set(code,r={sockets:new Set(),devices:new Map(),events:new Map(),touched:Date.now()});}
+    if(!r){if(rooms.size>=100)return error('room_capacity');rooms.set(code,r={sockets:new Set(),devices:new Map(),events:new Map(),gameStates:new Map(),touched:Date.now()});}
     if(role==='host'&&host(r)&&host(r)!==w)return error('host_already_connected');
     const id=String(m.clientId||'').slice(0,64)||randomUUID();
     if(role==='player'&&!r.devices.has(id)&&r.devices.size>=maxPhones)return error('device_capacity');
-    cleanup(w);Object.assign(w,{room:code,role,clientId:id,relayProtocol:m.protocol===3?3:2,sessionId:String(m.sessionId||'legacy').slice(0,64),team:m.team===2?2:1});
+    if(m.team!==undefined&&(!Number.isSafeInteger(m.team)||m.team<1||m.team>maxTeams))return error('invalid_team');
+    const gameId=m.gameId===undefined?'ar-games-test':String(m.gameId);
+    if(!/^[A-Za-z0-9_.-]{1,64}$/.test(gameId))return error('invalid_game');
+    const capabilities=Array.isArray(m.capabilities)?[...new Set(m.capabilities.filter(x=>typeof x==='string'&&/^[a-z][a-z0-9_.-]{0,47}$/.test(x)))].slice(0,32):[];
+    cleanup(w);Object.assign(w,{room:code,role,clientId:id,relayProtocol:m.protocol===3?3:2,sessionId:String(m.sessionId||'legacy').slice(0,64),team:m.team??1,gameId,capabilities});
     if(role==='player'){
      for(const old of [...r.sockets])if(old.role==='player'&&old.clientId===id){cleanup(old);old.close(4001,'replaced');}
      let d=r.devices.get(id);if(!d)r.devices.set(id,d={clientId:id,accepted:0,received:0,duplicates:0,reconnects:0,pending:0});else d.reconnects++;
-     Object.assign(d,{team:w.team,online:true,lastSeen:Date.now()});
+     Object.assign(d,{team:w.team,online:true,lastSeen:Date.now(),gameId,capabilities});
     }
-    r.sockets.add(w);r.touched=Date.now();send(w,{type:'joined',room:code,role,clientId:id,team:w.team,epoch,protocol:3,retentionMs,serverTs:Date.now()});presence(r);
+    r.sockets.add(w);r.touched=Date.now();send(w,{type:'joined',room:code,role,clientId:id,team:w.team,gameId,epoch,protocol:3,retentionMs,serverTs:Date.now()});
+    if(role==='player')for(const snapshot of r.gameStates.values())if(snapshot.gameId===gameId&&(snapshot.team===null||snapshot.team===w.team)&&(!snapshot.clientId||snapshot.clientId===w.clientId))send(w,{type:'game_state',...snapshot,serverTs:Date.now()});
+    presence(r);
     if(role==='host')for(const e of r.events.values())if(!e.delivered)deliver(r,e);return;
    }
    const r=rooms.get(w.room);if(!r)return error('join_first');r.touched=Date.now();
+   if(m.type==='game_state_update'){
+    if(w.role!=='host'||w.relayProtocol!==3)return error('host_required');
+    if(m.gameId!==w.gameId||!m.state||typeof m.state!=='object'||Array.isArray(m.state))return error('invalid_game_state');
+    let encoded;try{encoded=JSON.stringify(m.state);}catch{return error('invalid_game_state');}
+    const clientId=m.clientId??null;if(typeof encoded!=='string'||encoded.length>8000||m.team!==undefined&&m.team!==null&&(!Number.isSafeInteger(m.team)||m.team<1||m.team>maxTeams)||clientId!==null&&(typeof clientId!=='string'||clientId.length<1||clientId.length>64)||clientId!==null&&m.team!==undefined&&m.team!==null)return error('invalid_game_state');
+    const team=m.team??null,scope=clientId?`client:${clientId}`:team??'*',key=`${m.gameId}:${scope}`,previous=r.gameStates.get(key),snapshot={gameId:m.gameId,team,clientId,revision:(previous?.revision||0)+1,state:m.state};
+    if(!previous&&r.gameStates.size>=maxTeams+maxPhones+1)r.gameStates.delete(r.gameStates.keys().next().value);
+    r.gameStates.set(key,snapshot);
+    for(const s of r.sockets)if(s.role==='player'&&s.gameId===m.gameId&&(team===null||s.team===team)&&(!clientId||s.clientId===clientId))send(s,{type:'game_state',...snapshot,serverTs:Date.now()});
+    return;
+   }
    if(m.type==='ping_app')return send(w,{type:'pong_app',id:m.id,clientTs:m.clientTs,serverTs:Date.now()});
    if(m.type==='metrics'&&w.role==='player'){
     const d=r.devices.get(w.clientId);for(const k of ['sent','lost','pending','rtt','rttMin','rttMax','rttAvg'])if(Number.isFinite(m[k])&&m[k]>=0&&m[k]<=Number.MAX_SAFE_INTEGER)d[k==='pending'?'clientPending':k]=m[k];d.lastSeen=Date.now();return presence(r);
@@ -95,6 +115,7 @@ function createRelay() {
    if(m.type==='command'&&(typeof m.action!=='string'||!/^[A-Za-z0-9_.:-]{1,64}$/.test(m.action)||typeof m.gameId!=='string'||!/^[A-Za-z0-9_.-]{1,64}$/.test(m.gameId)||JSON.stringify(m.payload??{}).length>8000))return error('invalid_command');
    if(m.sessionId!==w.sessionId)return error('session_mismatch');
    if(!Number.isFinite(m.clientTs)||Date.now()-m.clientTs>retentionMs||m.clientTs>Date.now()+60000)return error('command_expired');
+   const commandNow=Date.now();if(!w.commandWindow||commandNow-w.commandWindow>=1000){w.commandWindow=commandNow;w.commandCount=0;}if(w.commandCount>=maxCommandsPerSecond)return error('command_rate_limited');w.commandCount++;
    const eventId=JSON.stringify([w.clientId,w.sessionId,m.seq]),d=r.devices.get(w.clientId);d.lastSeen=Date.now();
    const fingerprint=JSON.stringify([m.type,m.gameId??null,m.action??null,m.payload??null,m.button??null,w.team]);
    let e=r.events.get(eventId),duplicate=!!e;
@@ -108,7 +129,7 @@ function createRelay() {
  const heartbeat=setInterval(()=>{for(const w of wss.clients){if(!w.isAlive)w.terminate();else{w.isAlive=false;w.ping();}}},25000);
  app.use(express.static(path.join(__dirname,'public')));
  app.get('/relay-config.json',(_q,res)=>res.sendFile(path.join(__dirname,'relay-config.json')));
- app.get('/health',(_q,res)=>res.json({ok:true,service:'AR Games Relay',version:'0.4.0',clients:wss.clients.size,maxPhones,epoch}));
+ app.get('/health',(_q,res)=>res.json({ok:true,service:'AR Games Relay',version:'0.4.0',clients:wss.clients.size,maxPhones,maxTeams,maxCommandsPerSecond,epoch}));
  return{server,wss,rooms,close:()=>new Promise(resolve=>{clearInterval(retry);clearInterval(heartbeat);for(const w of wss.clients)w.terminate();wss.close();server.close(resolve);})};
 }
 if(require.main===module)createRelay().server.listen(process.env.PORT||3000,'0.0.0.0',()=>console.log('AR Games Relay v0.4 listening'));

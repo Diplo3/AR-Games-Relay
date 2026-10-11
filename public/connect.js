@@ -24,17 +24,17 @@
  }
  class Client {
   constructor(options){
-   Object.assign(this,{WebSocket:globalThis.WebSocket,storage:globalThis.localStorage,onEvent:()=>{},onState:()=>{},onStats:()=>{},onCommand:()=>{},onSensor:()=>{},gameId:'ar-games-test',...options});
+   Object.assign(this,{WebSocket:globalThis.WebSocket,storage:globalThis.localStorage,onEvent:()=>{},onState:()=>{},onStats:()=>{},onCommand:()=>{},onSensor:()=>{},onGameState:()=>{},gameId:'ar-games-test',...options});
    if(!this.url&&this.configUrl===undefined)this.configUrl=defaultConfigUrl;
    this.mode=this.mode||'internet';this.configFetch=this.fetch||globalThis.fetch;this.endpoint=this.url||null;this.configFlight=null;
    this.key=`ar-v3:${this.room}:${this.role}:${this.clientId}`;
    let saved;try{saved=JSON.parse(this.storage?.getItem(this.key)||'null');}catch{}
    this.sessionId=saved?.sessionId||globalThis.crypto.randomUUID();this.seq=saved?.seq||0;
-   this.team=saved?.team||this.team||1;this.queue=saved?.queue||[];this.seen=new Map(saved?.seen||[]);
-   this.stats=saved?.stats||{sent:0,received:0,lost:0,duplicates:0,reconnects:0,rttCount:0,rttTotal:0,rttMin:null,rttMax:null,rtt:null};
+   const requestedTeam=Number(saved?.team??this.team??1);this.team=Number.isSafeInteger(requestedTeam)&&requestedTeam>=1&&requestedTeam<=50?requestedTeam:1;this.queue=saved?.queue||[];this.seen=new Map(saved?.seen||[]);
+   this.stats=saved?.stats||{sent:0,received:0,lost:0,duplicates:0,reconnects:0,rttCount:0,rttTotal:0,rttMin:null,rttMax:null,rtt:null};this.gameRevisions=new Map(saved?.gameRevisions||[]);this.publishedStates=new Map(saved?.publishedStates||[]);this.relayEpoch=saved?.relayEpoch||null;
    this.running=false;this.ready=false;this.attempt=0;this.everJoined=false;this.sensorSeq=0;
   }
-  persist(){this.storage?.setItem(this.key,JSON.stringify({sessionId:this.sessionId,seq:this.seq,team:this.team,queue:this.queue,seen:[...this.seen],stats:this.stats}));this.onStats({...this.stats,pending:this.queue.length,accepted:this.queue.filter(e=>e.accepted).length});}
+  persist(){this.storage?.setItem(this.key,JSON.stringify({sessionId:this.sessionId,seq:this.seq,team:this.team,queue:this.queue,seen:[...this.seen],stats:this.stats,gameRevisions:[...this.gameRevisions],publishedStates:[...this.publishedStates],relayEpoch:this.relayEpoch}));this.onStats({...this.stats,pending:this.queue.length,accepted:this.queue.filter(e=>e.accepted).length});}
   start(){if(this.running)return;this.running=true;if(this.configUrl){this.refreshConfig();this.configTimer=setInterval(()=>this.refreshConfig(),this.configRefreshMs||60000);}else this.connect();this.tick=setInterval(()=>this.flush(),1000);}
   stop(){this.running=false;this.ready=false;clearTimeout(this.reconnect);clearInterval(this.tick);clearInterval(this.configTimer);this.ws?.close();}
   async refreshConfig(){
@@ -56,30 +56,31 @@
   connect(){
    if(!this.running||!this.url)return;this.onState('Подключение…');const ws=this.ws=new this.WebSocket(this.url);
    const connectTimeout=setTimeout(()=>{if(this.ws===ws&&!this.ready)ws.close();},10000);
-   ws.onopen=()=>{clearTimeout(connectTimeout);this.send({type:'join',protocol:3,room:this.room,role:this.role,clientId:this.clientId,sessionId:this.sessionId,team:this.team});};
+   ws.onopen=()=>{clearTimeout(connectTimeout);this.send({type:'join',protocol:3,room:this.room,role:this.role,clientId:this.clientId,sessionId:this.sessionId,team:this.team,gameId:this.gameId,capabilities:this.capabilities||[]});};
    ws.onmessage=e=>{if(this.ws!==ws)return;this.message(JSON.parse(e.data));};
    ws.onerror=()=>{};
    ws.onclose=e=>{clearTimeout(connectTimeout);if(this.ws!==ws)return;this.ready=false;if(e.code===4001){this.stop();return this.onState('Это устройство подключено в другой вкладке');}this.onState('Нет связи — переподключение…');if(this.running){if(this.configUrl)this.refreshConfig();this.reconnect=setTimeout(()=>this.connect(),Math.min(10000,500*2**Math.min(this.attempt++,5))+Math.random()*300);}};
   }
   send(m){if(this.ws?.readyState===1)this.ws.send(JSON.stringify(m));}
   message(m){
-   if(m.type==='joined'){if(this.everJoined)this.stats.reconnects++;this.everJoined=true;this.attempt=0;this.ping=null;this.ready=true;this.onState('Подключено');this.persist();this.flush();}
+   if(m.type==='joined'){const newEpoch=!!m.epoch&&this.relayEpoch!==m.epoch;if(newEpoch)this.gameRevisions.clear();this.relayEpoch=m.epoch||this.relayEpoch;if(this.everJoined)this.stats.reconnects++;this.everJoined=true;this.attempt=0;this.ping=null;this.ready=true;this.onState('Подключено');this.persist();if(this.role==='host'&&newEpoch)for(const snapshot of this.publishedStates.values())this.send({type:'game_state_update',...snapshot});this.flush();}
    if(['button','command'].includes(m.type)&&this.role==='host'){
-    if(!m.eventId){this.stats.received++;this.onCommand(m);this.persist();}
-    else{
-     if(!this.seen.has(m.eventId)){this.onCommand(m);this.seen.set(m.eventId,Date.now());this.stats.received++;this.persist();}
+    if(!m.eventId){try{this.onCommand(m);this.stats.received++;this.persist();}catch(error){this.onState(`Ошибка обработки команды: ${error?.message||error}`);}}
+    else this.hostCommandChain=(this.hostCommandChain||Promise.resolve()).then(async()=>{
+     if(!this.seen.has(m.eventId)){await this.onCommand(m);this.seen.set(m.eventId,Date.now());this.stats.received++;this.persist();}
      else{this.stats.duplicates++;this.persist();}
      this.send({type:'host_ack',eventId:m.eventId});
-    }
+    }).catch(error=>{this.onState(`Ошибка обработки команды: ${error?.message||error}`);});
    }
    if(m.type==='sensor'&&this.role==='host')this.onSensor(m);
+   if(m.type==='game_state'&&this.role==='player'&&m.gameId===this.gameId){const scope=m.clientId?`client:${m.clientId}`:m.team??'*',key=`${m.gameId}:${scope}`,previous=this.gameRevisions.get(key)||0;if(Number.isSafeInteger(m.revision)&&m.revision>=previous){this.gameRevisions.set(key,m.revision);this.persist();this.onGameState(m);}}
    if(m.type==='ack'&&m.sessionId===this.sessionId){const q=this.queue.find(q=>q.seq===m.seq);if(q){q.accepted=true;if(m.duplicate)this.stats.duplicates++;this.persist();}}
    if((m.type==='delivered'||m.type==='ack'&&m.delivered)&&m.sessionId===this.sessionId){
     const i=this.queue.findIndex(q=>q.seq===m.seq);if(i>=0){this.queue.splice(i,1);this.stats.received++;this.persist();}
    }
    if(m.type==='pong_app'&&this.ping&&m.id===this.ping.id){const ms=Date.now()-this.ping.time;Object.assign(this.stats,{rtt:ms,rttCount:this.stats.rttCount+1,rttTotal:this.stats.rttTotal+ms,rttMin:this.stats.rttMin===null?ms:Math.min(ms,this.stats.rttMin),rttMax:this.stats.rttMax===null?ms:Math.max(ms,this.stats.rttMax)});this.ping=null;this.persist();}
    if(m.type==='error'){
-    if(['command_expired','invalid_command','sequence_conflict','session_mismatch'].includes(m.message)){const i=this.queue.findIndex(q=>q.seq===m.seq);if(i>=0){this.queue.splice(i,1);this.stats.lost++;this.persist();}}
+    if(['command_expired','invalid_command','sequence_conflict','session_mismatch','command_capacity'].includes(m.message)){const i=this.queue.findIndex(q=>q.seq===m.seq);if(i>=0){this.queue.splice(i,1);this.stats.lost++;this.persist();}}
     if(['room_required','host_already_connected','device_capacity','room_capacity'].includes(m.message))this.stop();
     this.onState(`Ошибка: ${m.message}`);
    }
@@ -99,6 +100,12 @@
    let encoded;try{encoded=JSON.stringify(sample);}catch{return false;}
    if(typeof encoded!=='string'||encoded.length>512)return false;
    this.send({type:'sensor',gameId:this.gameId,channel,seq:++this.sensorSeq,sample,clientTs:Date.now()});return true;
+  }
+  publishState(state,{team=null,clientId=null}={}){
+   if(this.role!=='host'||team!==null&&(!Number.isSafeInteger(team)||team<1||team>50)||clientId!==null&&(typeof clientId!=='string'||clientId.length<1||clientId.length>64)||team!==null&&clientId!==null||!state||typeof state!=='object'||Array.isArray(state))return false;
+   let encoded;try{encoded=JSON.stringify(state);}catch{return false;}
+   if(typeof encoded!=='string'||encoded.length>8000)return false;
+   const scope=clientId?`client:${clientId}`:team??'*',key=`${this.gameId}:${scope}`,snapshot={gameId:this.gameId,team,clientId,state};if(!this.publishedStates.has(key)&&this.publishedStates.size>=151)return false;this.publishedStates.set(key,snapshot);this.persist();if(this.ready)this.send({type:'game_state_update',...snapshot});return true;
   }
   flush(){
    const now=Date.now();const expired=this.queue.filter(q=>now-q.clientTs>1800000);if(expired.length){this.stats.lost+=expired.length;this.queue=this.queue.filter(q=>now-q.clientTs<=1800000);this.persist();}

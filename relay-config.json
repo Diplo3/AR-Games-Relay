@@ -11,10 +11,12 @@
   },
   "limits": {
     "maxPhonesPerRoom": 50,
+    "maxTeamsPerRoom": 50,
     "maxPendingCommandsPerPhone": 5000,
     "commandRetentionMinutes": 30,
     "sensorSamplesPerPhonePerSecond": 25,
-    "maxSensorPayloadBytes": 1024
+    "maxSensorPayloadBytes": 1024,
+    "maxCommandsPerDevicePerSecond": 200
   },
   "refreshSeconds": 60
 }
