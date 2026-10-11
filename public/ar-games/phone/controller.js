@@ -2,10 +2,25 @@
   'use strict';
   const { $, element, identity, GAME_ID, readStored, showError } = ARQuizUI;
   const params = new URLSearchParams(location.search);
+  const benzomaniaPreset = GAME_ID === 'benzomania' && params.get('preset') === 'b' ? {
+    ui: {
+      brand: 'БЕНЗОМАНИЯ', brandIcon: 'canister', title: 'УПРАВЛЕНИЕ', layout: 'steering',
+      nameMode: 'hidden', teamPicker: 'buttons',
+      teams: [
+        { id: 1, label: 'СИНЯЯ КОМАНДА', indicatorLabel: 'СИНЯЯ КОМАНДА' },
+        { id: 2, label: 'ФИОЛЕТОВАЯ КОМАНДА', indicatorLabel: 'ФИОЛЕТОВАЯ КОМАНДА' }
+      ],
+      theme: { accent: '#398fff', background: '#0b1322', panel: '#14213a' }
+    },
+    buttons: [
+      { label: 'LEFT', action: 'benzomania.lane.left' },
+      { label: 'RIGHT', action: 'benzomania.lane.right' }
+    ]
+  } : null;
   const profileKey = 'ar-controller:' + GAME_ID + ':' + identity('player');
   const saved = readStored(profileKey, {});
-  let ui = {};
-  try { ui = JSON.parse(params.get('ui') || '{}'); } catch {}
+  let ui = benzomaniaPreset?.ui || {};
+  try { ui = { ...ui, ...JSON.parse(params.get('ui') || '{}') }; } catch {}
   if (!ui || typeof ui !== 'object' || Array.isArray(ui)) ui = {};
   const nameMode = ['required', 'optional', 'hidden'].includes(ui.nameMode) ? ui.nameMode : 'required';
   const steeringLayout = ui.layout === 'steering';
@@ -60,7 +75,7 @@
   }
   selectTeam(savedTeam);
   let client, buttons;
-  try { buttons = JSON.parse(params.get('buttons') || 'null'); } catch {}
+  try { buttons = JSON.parse(params.get('buttons') || (benzomaniaPreset ? JSON.stringify(benzomaniaPreset.buttons) : 'null')); } catch {}
   if (!Array.isArray(buttons)) buttons = [{ label: 'ЖМИ 1', action: 'button.one' }, { label: 'ЖМИ 2', action: 'button.two' }];
   const requiredSensors = (params.get('sensors') || '').split(',').filter(name => /^[a-z][a-z0-9_.-]{0,47}$/.test(name)).slice(0, 16);
   const labels = { orientation: 'Наклон', motion: 'Движение', gyroscope: 'Гироскоп', accelerometer: 'Ускорение', geolocation: 'Геолокация', gamepad: 'Геймпад', magnetometer: 'Компас', light: 'Освещённость', proximity: 'Приближение' };
