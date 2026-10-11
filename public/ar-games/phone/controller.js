@@ -18,6 +18,7 @@
   for (const [key, variable] of [['accent', '--accent'], ['background', '--bg'], ['panel', '--panel']]) {
     if (/^#[0-9a-f]{6}$/i.test(ui.theme?.[key] || '')) document.documentElement.style.setProperty(variable, ui.theme[key]);
   }
+  if (ui.brandIcon === 'canister') $('brand-mark').classList.remove('hidden');
   if (typeof ui.brand === 'string' && ui.brand.trim()) {
     $('brand-main').textContent = ui.brand.trim().slice(0, 32);
     if (typeof ui.brandSecondary === 'string' && ui.brandSecondary.trim()) $('brand-suffix').textContent = ui.brandSecondary.trim().slice(0, 32);
@@ -30,9 +31,34 @@
   $('name-field').classList.toggle('hidden', nameMode === 'hidden');
   $('name').required = nameMode === 'required';
   $('room').value = params.get('room') || saved.room || '';
+  if (/^[A-Z0-9]{4,8}$/i.test(params.get('room') || '')) $('room-field').classList.add('hidden');
   $('name').value = nameMode === 'hidden' ? '' : saved.name || '';
-  for (const team of teams) $('team').append(new Option(team.label.slice(0, 32), String(team.id)));
-  $('team').value = String(teamIds.has(saved.team) ? saved.team : teams[0].id);
+  const teamInput = $('team');
+  const teamOptions = $('team-options');
+  const buttonTeamPicker = ui.teamPicker === 'buttons';
+  const teamButtons = new Map();
+  const savedTeam = teamIds.has(saved.team) ? saved.team : teams[0].id;
+  for (const team of teams) teamInput.append(new Option(team.label.slice(0, 32), String(team.id)));
+  teamInput.value = String(savedTeam);
+  teamInput.classList.toggle('hidden', buttonTeamPicker);
+  teamOptions.classList.toggle('hidden', !buttonTeamPicker);
+  function selectTeam(id) {
+    if (!teamIds.has(id)) return;
+    teamInput.value = String(id);
+    for (const [teamId, button] of teamButtons) {
+      const selected = teamId === id;
+      button.classList.toggle('selected', selected);
+      button.setAttribute('aria-pressed', String(selected));
+    }
+  }
+  if (buttonTeamPicker) for (const team of teams) {
+    const button = element('button', team.label.slice(0, 32), 'team-option');
+    button.type = 'button';
+    button.onclick = () => selectTeam(team.id);
+    teamOptions.append(button);
+    teamButtons.set(team.id, button);
+  }
+  selectTeam(savedTeam);
   let client, buttons;
   try { buttons = JSON.parse(params.get('buttons') || 'null'); } catch {}
   if (!Array.isArray(buttons)) buttons = [{ label: 'ЖМИ 1', action: 'button.one' }, { label: 'ЖМИ 2', action: 'button.two' }];
@@ -92,6 +118,7 @@
     });
     localStorage.setItem(profileKey, JSON.stringify({ name: nameMode === 'hidden' ? '' : name, room, team: Number($('team').value) }));
     $('name').disabled = $('room').disabled = $('team').disabled = $('join').disabled = true;
+    for (const button of teamButtons.values()) button.disabled = true;
     $('join-form').classList.add('hidden');
     $('controls').classList.remove('hidden');
     if (steeringLayout) {
