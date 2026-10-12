@@ -81,7 +81,7 @@
   }
   try { buttons = JSON.parse(params.get('buttons') || 'null'); } catch {}
   if(gromkie)buttons=[];if (!Array.isArray(buttons)) buttons = [{ label: 'ЖМИ 1', action: 'button.one' }, { label: 'ЖМИ 2', action: 'button.two' }];
-  const requiredSensors = (params.get('sensors') || (gromkie?'motion':'')).split(',').filter(name => /^[a-z][a-z0-9_.-]{0,47}$/.test(name)).slice(0, 16);
+  const requiredSensors = (gromkie?'motion':(params.get('sensors') || '')).split(',').filter(name => /^[a-z][a-z0-9_.-]{0,47}$/.test(name)).slice(0, 16);
   const labels = { orientation: 'Наклон', motion: 'Движение', gyroscope: 'Гироскоп', accelerometer: 'Ускорение', geolocation: 'Геолокация', gamepad: 'Геймпад', magnetometer: 'Компас', light: 'Освещённость', proximity: 'Приближение' };
   const hub = new ARGameSensors.SensorController({ maxHz: 20,
     onSample: (channel, sample) => {
@@ -106,7 +106,7 @@
     $('buttons').append(button);
   }
   const sensorButtons=new Map();
-  function startMotion(){hub.stop('motion');const attempt=hub.start('motion');attempt.then(ok=>{const b=sensorButtons.get('motion');if(b)b.textContent=ok?'Выключить датчик':'Повторить запрос доступа';if(gromkie)$('gromkie-tap').classList.toggle('hidden',ok)});return attempt}
+  function startMotion(){hub.stop('motion');const attempt=hub.start('motion');attempt.then(ok=>{const b=sensorButtons.get('motion');if(b)b.textContent=ok?'Выключить датчик':'Разрешить доступ к датчику движения';if(gromkie)$('gromkie-tap').classList.toggle('hidden',ok)});return attempt}
   for (const channel of requiredSensors) {
     const button = element('button', 'Включить: ' + (labels[channel] || channel), 'secondary');
     button.type = 'button';
