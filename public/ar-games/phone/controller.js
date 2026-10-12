@@ -7,6 +7,7 @@
   let ui = {};
   try { ui = JSON.parse(params.get('ui') || '{}'); } catch {}
   if (!ui || typeof ui !== 'object' || Array.isArray(ui)) ui = {};
+  const gromkie=GAME_ID==='gromkie-gonki';if(gromkie){ui={...ui,layout:'steering',nameMode:'hidden',teamPicker:'buttons',brand:'ГРОМКИЕ ГОНКИ',brandSecondary:'',brandIcon:'gromkie-microphone',title:'ТРЯСИ ДЛЯ РАЗГОНА'};if(!Array.isArray(ui.teams)||ui.teams.length<2)ui.teams=[{id:1,label:'Команда 1'},{id:2,label:'Команда 2'}];}
   const nameMode = ['required', 'optional', 'hidden'].includes(ui.nameMode) ? ui.nameMode : 'required';
   const steeringLayout = ui.layout === 'steering';
   if (steeringLayout) document.body.classList.add('controller-steering');
@@ -45,7 +46,7 @@
   teamOptions.classList.toggle('hidden', !buttonTeamPicker);
   function selectTeam(id) {
     if (!teamIds.has(id)) return;
-    teamInput.value = String(id);
+    teamInput.value = String(id);if(gromkie){document.documentElement.style.setProperty('--accent',id===2?'#b36bff':'#2d9cff');}
     for (const [teamId, button] of teamButtons) {
       const selected = teamId === id;
       button.classList.toggle('selected', selected);
@@ -79,8 +80,8 @@
     if(active&&now-lastShakeAt>180){lastShakeAt=now;$('game-message').textContent='Разгон пошёл! Продолжайте встряхивать телефон.';}
   }
   try { buttons = JSON.parse(params.get('buttons') || 'null'); } catch {}
-  if (!Array.isArray(buttons)) buttons = [{ label: 'ЖМИ 1', action: 'button.one' }, { label: 'ЖМИ 2', action: 'button.two' }];
-  const requiredSensors = (params.get('sensors') || '').split(',').filter(name => /^[a-z][a-z0-9_.-]{0,47}$/.test(name)).slice(0, 16);
+  if(gromkie)buttons=[];if (!Array.isArray(buttons)) buttons = [{ label: 'ЖМИ 1', action: 'button.one' }, { label: 'ЖМИ 2', action: 'button.two' }];
+  const requiredSensors = (params.get('sensors') || (gromkie?'motion':'')).split(',').filter(name => /^[a-z][a-z0-9_.-]{0,47}$/.test(name)).slice(0, 16);
   const labels = { orientation: 'Наклон', motion: 'Движение', gyroscope: 'Гироскоп', accelerometer: 'Ускорение', geolocation: 'Геолокация', gamepad: 'Геймпад', magnetometer: 'Компас', light: 'Освещённость', proximity: 'Приближение' };
   const hub = new ARGameSensors.SensorController({ maxHz: 20,
     onSample: (channel, sample) => {
@@ -88,7 +89,7 @@
       if(channel==='motion') updateShakeFeedback(sample);
       if (channel === 'orientation') $('calibrate').classList.remove('hidden');
     },
-    onState: (channel, message) => { $('sensor-state').textContent = (labels[channel] || channel) + ': ' + message; }
+    onState: (channel, message) => { $('sensor-state').textContent = (labels[channel] || channel) + ': ' + message; if(gromkie&&channel==='motion'&&message.includes('не разрешён')){$('gromkie-tap').classList.remove('hidden');$('sensor-state').textContent='Доступ не разрешён. Повтори запрос или играй кнопкой.'} }
   });
   for (const descriptor of buttons.slice(0, 8)) {
     if (typeof descriptor?.label !== 'string' || !/^[A-Za-z0-9_.:-]{1,64}$/.test(descriptor.action || '')) continue;
@@ -104,22 +105,24 @@
     button.onclick = () => { if (client) client.sendCommand(descriptor.action, {}); };
     $('buttons').append(button);
   }
+  const sensorButtons=new Map();
+  function startMotion(){hub.stop('motion');const attempt=hub.start('motion');attempt.then(ok=>{const b=sensorButtons.get('motion');if(b)b.textContent=ok?'Выключить датчик':'Повторить запрос доступа';if(gromkie)$('gromkie-tap').classList.toggle('hidden',ok)});return attempt}
   for (const channel of requiredSensors) {
     const button = element('button', 'Включить: ' + (labels[channel] || channel), 'secondary');
     button.type = 'button';
     if (!hub.available().includes(channel)) { button.disabled = true; button.textContent = (labels[channel] || channel) + ' — недоступно'; }
     button.onclick = async () => {
       if (hub.active.has(channel)) { hub.stop(channel); button.textContent = 'Включить: ' + (labels[channel] || channel); }
-      else if (await hub.start(channel)) { button.textContent = 'Выключить: ' + (labels[channel] || channel); if(channel==='motion') $('game-message').textContent='Датчик включён. Встряхивайте телефон для разгона!'; }
+      else if (await (gromkie&&channel==='motion'?startMotion():hub.start(channel))) { button.textContent = 'Выключить: ' + (labels[channel] || channel); if(channel==='motion') $('game-message').textContent='Датчик включён. Встряхивайте телефон для разгона!'; }
     };
-    $('sensor-buttons').append(button);
+    sensorButtons.set(channel,button);$('sensor-buttons').append(button);
   }
   $('calibrate').onclick = () => { $('sensor-state').textContent = hub.calibrate() ? 'Текущее положение стало нейтральным.' : 'Сначала включите датчик наклона.'; };
   $('join-form').onsubmit = event => {
     event.preventDefault();
     const room = $('room').value.trim().toUpperCase();
     const playerId = identity('player');
-    const name = nameMode === 'hidden' ? 'Игрок ' + playerId.slice(-4) : $('name').value.trim() || 'Игрок ' + playerId.slice(-4);
+    const name = nameMode === 'hidden' ? (teams.find(t=>t.id===Number(teamInput.value))?.label||'Игрок ' + playerId.slice(-4)) : $('name').value.trim() || 'Игрок ' + playerId.slice(-4);
     if (!/^[A-Z0-9]{4,8}$/.test(room)) return showError('Введите код комнаты из 4–8 латинских букв или цифр.');
     if (nameMode === 'required' && !$('name').value.trim()) return showError('Введите имя.');
     const mode = params.get('mode') === 'lan' ? 'lan' : 'internet';
@@ -129,7 +132,7 @@
       if (!/^wss?:\/\//.test(address)) return showError('Некорректный адрес подключения');
       connection = { mode, url: address };
     } else connection = { mode, configUrl: [params.get('config') || ARConnect.defaultConfigUrl, location.origin + '/relay-config.json'] };
-    client?.stop();
+    client?.stop();if(gromkie)startMotion();
     client = new ARConnect.Client({ ...connection, room, role: 'player', clientId: playerId, gameId: GAME_ID, team: Number($('team').value), capabilities: hub.available(),
       onState: message => { $('connection').textContent = message; $('connection').classList.toggle('online', client.ready); },
       onGameState: message => { $('game-message').textContent = typeof message.state?.message === 'string' ? message.state.message : 'Игра обновлена'; },
@@ -151,5 +154,6 @@
     showError('');
     client.start();
   };
+  let lastManualTap=0;if(gromkie){$('gromkie-tap').onpointerdown=event=>{event.preventDefault();const at=performance.now();if(client?.ready&&at-lastManualTap>=90){lastManualTap=at;client.sendCommand('race.tap',{})}};$('controller-back').onclick=()=>{hub.stop();client?.stop();client=null;document.body.classList.remove('controller-active');$('controls').classList.add('hidden');$('join-form').classList.remove('hidden');$('team-indicator').classList.add('hidden');$('name').disabled=$('room').disabled=$('team').disabled=$('join').disabled=false;for(const b of teamButtons.values())b.disabled=false;$('connection').textContent='Выбери команду';$('connection').classList.remove('online')}}else $('controller-back').classList.add('hidden');
   window.addEventListener('beforeunload', () => { hub.stop(); client?.stop(); });
 })();

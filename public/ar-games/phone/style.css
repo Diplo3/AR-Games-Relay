@@ -79,3 +79,10 @@
 .controller-steering.controller-active .shake-feedback.active #shake-illustration{animation:gromkie-phone-shake .42s ease-in-out infinite}
 @keyframes gromkie-phone-shake{0%,100%{transform:rotate(-5deg) translateX(-2px)}50%{transform:rotate(5deg) translateX(2px)}}
 @media(max-height:680px){.controller-steering.controller-active .shake-feedback{min-height:190px}.controller-steering.controller-active #shake-illustration{height:min(23vh,155px);width:min(48vw,190px)}}
+
+/* Gromkie: separate joining and playing, with explicit form spacing. */
+.controller-gromkie-logo:not(.controller-active) #screen-title,.controller-gromkie-logo #sensor-note,.controller-gromkie-logo #game-message{display:none!important}
+.controller-gromkie-logo #join-form{display:grid;gap:18px}.controller-gromkie-logo #join-form.hidden{display:none!important}.controller-gromkie-logo #join{width:100%;margin:0;position:static}.controller-gromkie-logo .setup-row{margin:0}.controller-gromkie-logo .team-field{width:100%;min-width:0}.controller-gromkie-logo .team-options{gap:10px}.controller-gromkie-logo .team-option{outline-offset:-3px}
+.controller-gromkie-logo.controller-active #screen-title{display:block!important;text-align:center;font-size:clamp(22px,5.8vw,32px);line-height:1.2;white-space:normal}
+.controller-gromkie-logo header{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px}.controller-gromkie-logo .brand{min-width:0;font-size:clamp(12px,3.2vw,18px);white-space:nowrap}.controller-gromkie-logo .brand:before{width:65px;height:32px}.controller-gromkie-logo #connection{white-space:nowrap;font-size:11px;padding:9px 10px}.controller-gromkie-logo #controller-back{display:block;width:100%;margin-top:16px}.controller-gromkie-logo #gromkie-tap{width:100%;min-height:80px}.controller-gromkie-logo .footer-note:empty{display:none}
+.controller-gromkie-logo:not(.controller-active) #controller-back{display:none!important}
