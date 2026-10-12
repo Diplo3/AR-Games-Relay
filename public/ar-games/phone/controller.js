@@ -154,6 +154,6 @@
     showError('');
     client.start();
   };
-  let lastManualTap=0;if(gromkie){$('gromkie-tap').onpointerdown=event=>{event.preventDefault();const at=performance.now();if(client?.ready&&at-lastManualTap>=90){lastManualTap=at;client.sendCommand('race.tap',{})}};$('controller-back').onclick=()=>{hub.stop();client?.stop();client=null;document.body.classList.remove('controller-active');$('controls').classList.add('hidden');$('join-form').classList.remove('hidden');$('team-indicator').classList.add('hidden');$('name').disabled=$('room').disabled=$('team').disabled=$('join').disabled=false;for(const b of teamButtons.values())b.disabled=false;$('connection').textContent='Выбери команду';$('connection').classList.remove('online')}}else $('controller-back').classList.add('hidden');
+  let lastManualTap=0;if(gromkie){$('gromkie-tap').onpointerdown=event=>{event.preventDefault();const at=performance.now();if(client?.ready&&at-lastManualTap>=90){lastManualTap=at;client.sendCommand('race.tap',{})}};$('controller-back').remove()}else $('controller-back').classList.add('hidden');
   window.addEventListener('beforeunload', () => { hub.stop(); client?.stop(); });
 })();
