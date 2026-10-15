@@ -8,6 +8,13 @@
   try { ui = JSON.parse(params.get('ui') || '{}'); } catch {}
   if (!ui || typeof ui !== 'object' || Array.isArray(ui)) ui = {};
   const gromkie=GAME_ID==='gromkie-gonki';if(gromkie){ui={...ui,layout:'steering',nameMode:'hidden',teamPicker:'buttons',brand:'ГРОМКИЕ ГОНКИ',brandSecondary:'',brandIcon:'gromkie-microphone',title:'ТРЯСИ ДЛЯ РАЗГОНА'};if(!Array.isArray(ui.teams)||ui.teams.length<2)ui.teams=[{id:1,label:'Команда 1'},{id:2,label:'Команда 2'}];}
+  const benzomania=GAME_ID==='benzomania';
+  if(benzomania){
+    ui={...ui,layout:'steering',nameMode:'hidden',teamPicker:'buttons',brand:'БЕНЗОМАНИЯ',brandSecondary:'',brandIcon:'canister',title:'УПРАВЛЕНИЕ'};
+    if(!Array.isArray(ui.teams)||ui.teams.length!==2)ui.teams=[{id:1,label:'СИНЯЯ КОМАНДА'},{id:2,label:'ФИОЛЕТОВАЯ КОМАНДА'}];
+    document.body.classList.add('controller-benzomania');
+  }
+  if(!gromkie){$('shake-feedback').classList.add('hidden');$('gromkie-tap').classList.add('hidden');}
   const nameMode = ['required', 'optional', 'hidden'].includes(ui.nameMode) ? ui.nameMode : 'required';
   const steeringLayout = ui.layout === 'steering';
   if (steeringLayout) document.body.classList.add('controller-steering');
@@ -100,8 +107,9 @@
     if(active&&now-lastShakeAt>180){lastShakeAt=now;$('game-message').textContent='Разгон пошёл! Продолжайте встряхивать телефон.';}
   }
   try { buttons = JSON.parse(params.get('buttons') || 'null'); } catch {}
+  if(benzomania)buttons=[{label:'ВЛЕВО',action:'benzomania.lane.left'},{label:'ВПРАВО',action:'benzomania.lane.right'}];
   if(gromkie)buttons=[];if (!Array.isArray(buttons)) buttons = [{ label: 'ЖМИ 1', action: 'button.one' }, { label: 'ЖМИ 2', action: 'button.two' }];
-  const requiredSensors = (gromkie?'motion':(params.get('sensors') || '')).split(',').filter(name => /^[a-z][a-z0-9_.-]{0,47}$/.test(name)).slice(0, 16);
+  const requiredSensors = (benzomania?'':gromkie?'motion':(params.get('sensors') || '')).split(',').filter(name => /^[a-z][a-z0-9_.-]{0,47}$/.test(name)).slice(0, 16);
   const labels = { orientation: 'Наклон', motion: 'Движение', gyroscope: 'Гироскоп', accelerometer: 'Ускорение', geolocation: 'Геолокация', gamepad: 'Геймпад', magnetometer: 'Компас', light: 'Освещённость', proximity: 'Приближение' };
   const hub = new ARGameSensors.SensorController({ maxHz: 20,
     onSample: (channel, sample) => {
@@ -178,6 +186,11 @@
           return;
         }
         raceState=next;renderRace();
+      }else if(benzomania){
+        const state=message.state||{},team=Number(teamInput.value)===2?'purple':'blue';
+        const playing=state.raceRunning===true&&!state.paused&&state.activeTeam===team;
+        document.querySelectorAll('#buttons button').forEach(b=>b.disabled=!playing);
+        $('game-message').textContent=playing?'Используй стрелки для перестроения':state.paused?'Игра на паузе':state.raceRunning?'Сейчас играет другая команда':'Ждём начала заезда';
       }else $('game-message').textContent = typeof message.state?.message === 'string' ? message.state.message : 'Игра обновлена'; },
       onEvent: message => { if (message.type === 'joined') client.sendCommand('player.join', { name }); }
     });
@@ -192,12 +205,14 @@
       $('team-indicator').classList.remove('hidden');
     }
     $('sensor-note').classList.add('hidden');
-    $('game-message').textContent='Подключено. Включите датчик и встряхивайте телефон для разгона.';
+    $('game-message').textContent=benzomania?'Ждём начала заезда':'Подключено. Включите датчик и встряхивайте телефон для разгона.';
+    if(benzomania)document.querySelectorAll('#buttons button').forEach(b=>b.disabled=true);
     document.body.classList.add('controller-active');
     renderRace();
     showError('');
     client.start();
   };
   let lastManualTap=0;if(gromkie){$('gromkie-tap').addEventListener('touchstart',event=>{event.preventDefault();$('gromkie-tap').onpointerdown(event)},{passive:false});$('gromkie-tap').addEventListener('dblclick',event=>event.preventDefault());$('gromkie-tap').onpointerdown=event=>{event.preventDefault();const at=performance.now();if(client?.ready&&raceActive()&&motionAllowed===false&&at-lastManualTap>=90){lastManualTap=at;client.sendCommand('race.tap',{})}};$('controller-back').onclick=()=>{++motionAttempt;hub.stop();motionAllowed=null;raceState={phase:'ready'};renderRace();client?.stop();client=null;document.body.classList.remove('controller-active');$('controls').classList.add('hidden');$('join-form').classList.remove('hidden');$('team-indicator').classList.add('hidden');$('name').disabled=$('room').disabled=$('team').disabled=$('join').disabled=false;for(const b of teamButtons.values())b.disabled=false;$('connection').textContent='Выбери команду';$('connection').classList.remove('online')}}else $('controller-back').classList.add('hidden');
+  if(benzomania){$('sensor-buttons').classList.add('hidden');$('sensor-state').classList.add('hidden');$('sensor-note').classList.add('hidden');}
   window.addEventListener('beforeunload', () => { hub.stop(); client?.stop(); });
 })();
