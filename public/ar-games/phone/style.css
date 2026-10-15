@@ -96,3 +96,6 @@
 .controller-gromkie-logo.controller-active .shake-feedback{flex-shrink:0;margin:0}
 
 .controller-gromkie-logo.controller-active{position:static;overflow:auto;touch-action:pan-y}.controller-gromkie-logo.controller-active .shell.phone{height:auto;min-height:100dvh}
+
+.controller-gromkie-logo #gromkie-tap { touch-action: none; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+.controller-gromkie-logo.controller-active #controls .hidden { display: none !important; }
