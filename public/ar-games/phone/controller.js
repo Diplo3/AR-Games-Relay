@@ -77,7 +77,8 @@
   function renderRace() {
     if (!gromkie) return;
     const active = raceActive();
-    $('shake-feedback').classList.toggle('hidden', !active || motionAllowed === false);
+    if(typeof motionButton!=='undefined')motionButton.classList.toggle('hidden',motionAllowed!==null||motionPending);
+    $('shake-feedback').classList.toggle('hidden', !active || motionAllowed !== true);
     $('gromkie-tap').classList.toggle('hidden', !active || motionAllowed !== false);
     $('gromkie-tap').disabled = !active;
     $('screen-title').textContent = active ? (motionAllowed === false ? 'ЧАСТО НАЖИМАЙ ДЛЯ РАЗГОНА' : 'ТРЯСИ ДЛЯ РАЗГОНА') : 'ЖДЁМ НАЧАЛА ИГРЫ';
@@ -133,14 +134,14 @@
     button.onclick = () => { if (client) client.sendCommand(descriptor.action, {}); };
     $('buttons').append(button);
   }
-  const sensorButtons=new Map();
+  const sensorButtons=new Map();let motionPending=false;const motionButton=element('button','Разрешить датчик движения','secondary');motionButton.type='button';motionButton.onclick=()=>startMotion();if(gromkie)$('sensor-buttons').append(motionButton);
   function startMotion(){
-    const attemptId = ++motionAttempt;
+    const attemptId = ++motionAttempt;motionPending=true;motionButton.classList.add('hidden');
     hub.stop('motion'); motionAllowed = null; renderRace();
     const attempt = hub.start('motion');
     attempt.then(ok=>{
       if(attemptId !== motionAttempt) return;
-      motionAllowed = ok;
+      motionPending=false;motionAllowed = ok;
       $('sensor-state').textContent = gromkie ? (ok ? '' : 'Датчик недоступен. Играй кнопкой. Новый запрос — при новом подключении к игре.') : '';
       renderRace();
     });
@@ -172,7 +173,7 @@
       if (!/^wss?:\/\//.test(address)) return showError('Некорректный адрес подключения');
       connection = { mode, url: address };
     } else connection = { mode, configUrl: [params.get('config') || ARConnect.defaultConfigUrl, location.origin + '/relay-config.json'] };
-    client?.stop();if(gromkie){raceState={phase:'ready'};startMotion();}
+    client?.stop();if(gromkie){raceState={phase:'ready'};motionAllowed=null;}
     client = new ARConnect.Client({ ...connection, room, role: 'player', clientId: playerId, gameId: GAME_ID, team: Number($('team').value), capabilities: hub.available(),
       onState: message => { $('connection').textContent = message; $('connection').classList.toggle('online', client.ready); },
       onGameState: message => { if(gromkie){
@@ -212,7 +213,7 @@
     showError('');
     client.start();
   };
-  let lastManualTap=0;if(gromkie){$('gromkie-tap').addEventListener('touchstart',event=>{event.preventDefault();$('gromkie-tap').onpointerdown(event)},{passive:false});$('gromkie-tap').addEventListener('dblclick',event=>event.preventDefault());$('gromkie-tap').onpointerdown=event=>{event.preventDefault();const at=performance.now();if(client?.ready&&raceActive()&&motionAllowed===false&&at-lastManualTap>=90){lastManualTap=at;client.sendCommand('race.tap',{})}};$('controller-back').onclick=()=>{++motionAttempt;hub.stop();motionAllowed=null;raceState={phase:'ready'};renderRace();client?.stop();client=null;document.body.classList.remove('controller-active');$('controls').classList.add('hidden');$('join-form').classList.remove('hidden');$('team-indicator').classList.add('hidden');$('name').disabled=$('room').disabled=$('team').disabled=$('join').disabled=false;for(const b of teamButtons.values())b.disabled=false;$('connection').textContent='Выбери команду';$('connection').classList.remove('online')}}else $('controller-back').classList.add('hidden');
+  let lastManualTap=0;if(gromkie){$('gromkie-tap').addEventListener('touchstart',event=>{event.preventDefault();$('gromkie-tap').onpointerdown(event)},{passive:false});$('gromkie-tap').addEventListener('dblclick',event=>event.preventDefault());$('gromkie-tap').onpointerdown=event=>{event.preventDefault();const at=performance.now();if(client?.ready&&raceActive()&&motionAllowed===false&&at-lastManualTap>=90){lastManualTap=at;client.sendCommand('race.tap',{})}};$('controller-back').onclick=()=>{++motionAttempt;hub.stop();motionPending=false;motionAllowed=null;raceState={phase:'ready'};renderRace();client?.stop();client=null;document.body.classList.remove('controller-active');$('controls').classList.add('hidden');$('join-form').classList.remove('hidden');$('team-indicator').classList.add('hidden');$('name').disabled=$('room').disabled=$('team').disabled=$('join').disabled=false;for(const b of teamButtons.values())b.disabled=false;$('connection').textContent='Выбери команду';$('connection').classList.remove('online')}}else $('controller-back').classList.add('hidden');
   if(benzomania){$('sensor-buttons').classList.add('hidden');$('sensor-state').classList.add('hidden');$('sensor-note').classList.add('hidden');}
   window.addEventListener('beforeunload', () => { hub.stop(); client?.stop(); });
 })();
