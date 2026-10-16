@@ -77,7 +77,7 @@
   function renderRace() {
     if (!gromkie) return;
     const active = raceActive();
-    if(typeof motionButton!=='undefined')motionButton.classList.toggle('hidden',motionAllowed!==null||motionPending);
+    if(typeof motionButton!=='undefined')motionButton.classList.toggle('hidden',motionAllowed!==null||motionPending);motionButton.disabled=!client?.ready;
     $('shake-feedback').classList.toggle('hidden', !active || motionAllowed !== true);
     $('gromkie-tap').classList.toggle('hidden', !active || motionAllowed !== false);
     $('gromkie-tap').disabled = !active;
@@ -175,7 +175,7 @@
     } else connection = { mode, configUrl: [params.get('config') || ARConnect.defaultConfigUrl, location.origin + '/relay-config.json'] };
     client?.stop();if(gromkie){raceState={phase:'ready'};motionAllowed=null;}
     client = new ARConnect.Client({ ...connection, room, role: 'player', clientId: playerId, gameId: GAME_ID, team: Number($('team').value), capabilities: hub.available(),
-      onState: message => { $('connection').textContent = message; $('connection').classList.toggle('online', client.ready); },
+      onState: message => { $('connection').textContent = message; $('connection').classList.toggle('online', client.ready);if(gromkie)renderRace(); },
       onGameState: message => { if(gromkie){
         const next = message.state || {phase:'ready'};
         const restarted = gameSession && next.gameSession && gameSession !== next.gameSession;
