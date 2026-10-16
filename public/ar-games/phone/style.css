@@ -104,3 +104,5 @@
 
 .controller-benzomania #join-form{display:grid;gap:18px}.controller-benzomania .setup-row{display:block}.controller-benzomania .team-field{margin:0;min-width:0}.controller-benzomania #join{display:block;width:100%;min-height:58px;margin:0;clear:both;background:#398fff;color:#fff}.controller-benzomania .team-options{gap:10px}
 .controller-steering.controller-benzomania .brand:before{content:none;display:none}
+
+.controller-benzomania.benz-waiting #buttons{display:none!important}.controller-benzomania.benz-waiting #screen-title{display:block!important;text-align:center;margin:65px 0 20px;font-size:26px}.controller-benzomania.benz-waiting #game-message{display:block!important;text-align:center;background:none;color:var(--muted)}
