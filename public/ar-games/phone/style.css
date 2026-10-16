@@ -102,4 +102,5 @@
 
 .controller-benzomania #shake-feedback,.controller-benzomania #gromkie-tap,.controller-benzomania #sensor-buttons,.controller-benzomania #sensor-state{display:none!important}.controller-benzomania #buttons{display:grid;grid-template-columns:1fr 1fr;gap:16px}.controller-benzomania .steering-button{touch-action:none;min-height:150px}
 
-.controller-benzomania #join-form{display:grid;gap:18px}.controller-benzomania .setup-row{display:block}.controller-benzomania .team-field{margin:0;min-width:0}.controller-benzomania #join{display:block;width:100%;min-height:58px;margin:0;clear:both}.controller-benzomania .team-options{gap:10px}
+.controller-benzomania #join-form{display:grid;gap:18px}.controller-benzomania .setup-row{display:block}.controller-benzomania .team-field{margin:0;min-width:0}.controller-benzomania #join{display:block;width:100%;min-height:58px;margin:0;clear:both;background:#398fff;color:#fff}.controller-benzomania .team-options{gap:10px}
+.controller-steering.controller-benzomania .brand:before{content:none;display:none}

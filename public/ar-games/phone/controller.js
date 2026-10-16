@@ -10,7 +10,7 @@
   const gromkie=GAME_ID==='gromkie-gonki';if(gromkie){ui={...ui,layout:'steering',nameMode:'hidden',teamPicker:'buttons',brand:'ГРОМКИЕ ГОНКИ',brandSecondary:'',brandIcon:'gromkie-microphone',title:'ТРЯСИ ДЛЯ РАЗГОНА'};if(!Array.isArray(ui.teams)||ui.teams.length<2)ui.teams=[{id:1,label:'Команда 1'},{id:2,label:'Команда 2'}];}
   const benzomania=GAME_ID==='benzomania';
   if(benzomania){
-    ui={...ui,layout:'steering',nameMode:'hidden',teamPicker:'buttons',brand:'БЕНЗОМАНИЯ',brandSecondary:'',brandIcon:'canister',title:'УПРАВЛЕНИЕ'};
+    ui={...ui,layout:'steering',nameMode:'hidden',teamPicker:'buttons',brand:'БЕНЗОМАНИЯ',brandSecondary:'',brandIcon:'canister',title:'УПРАВЛЕНИЕ',theme:{accent:'#398fff',background:'#0b1322',panel:'#14213a',...ui.theme}};
     if(!Array.isArray(ui.teams)||ui.teams.length!==2)ui.teams=[{id:1,label:'СИНЯЯ КОМАНДА'},{id:2,label:'ФИОЛЕТОВАЯ КОМАНДА'}];
     document.body.classList.add('controller-benzomania');
   }
