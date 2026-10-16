@@ -305,9 +305,9 @@ document.addEventListener('visibilitychange',()=>{
   if(document.hidden){gesture=null;pending=0;zone.classList.remove('working');}
   else if(relay?.running)relay.flush();
 });
-let lastHapticAt=0;
+let lastHapticAt=0,readyHapticUntil=0;
 
-function haptic(kind){const now=performance.now();if(kind==='roll'&&now-lastHapticAt<180)return;lastHapticAt=now;try{if(typeof window.raceHaptics?.impact==='function'){window.raceHaptics.impact(kind);return;}if(typeof navigator.vibrate==='function'&&navigator.userActivation?.hasBeenActive!==false)navigator.vibrate(kind==='ready'?450:kind==='throw'?52:22);}catch{}}
+function haptic(kind){const now=performance.now();if(kind==='roll'&&(now-lastHapticAt<180||now<readyHapticUntil))return;if(kind==='ready')readyHapticUntil=now+450;lastHapticAt=now;try{if(typeof window.raceHaptics?.impact==='function'){window.raceHaptics.impact(kind);return;}if(typeof navigator.vibrate==='function'&&navigator.userActivation?.hasBeenActive!==false)navigator.vibrate(kind==='ready'?450:kind==='throw'?52:22);}catch{}}
 function refresh(){}
 function parsePath(value){return value.match(/[A-Za-z]|[-+]?(?:\d*\.)?\d+(?:[eE][-+]?\d+)?/g)||[];}
 function rotateTokens(tokens,degrees){const out=tokens.slice(),ids=[];for(let i=0;i<tokens.length;i++)if(!/^[A-Za-z]$/.test(tokens[i]))ids.push(i);const rad=degrees*Math.PI/180,c=Math.cos(rad),sn=Math.sin(rad);for(let i=0;i<ids.length;i+=2){const xi=ids[i],yi=ids[i+1],x=Number(tokens[xi])-150,y=Number(tokens[yi])-140;out[xi]=String(150+x*c-y*sn);out[yi]=String(140+x*sn+y*c);}return out;}
