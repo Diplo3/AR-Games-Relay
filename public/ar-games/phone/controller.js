@@ -69,7 +69,9 @@
   }
   selectTeam(savedTeam);
   let client, buttons, gravityReference = null, lastShakeAt = 0;
-  let lastTelemetry=null;
+  let blockedBaseline=null,blockedNoticeTimer;
+function showBlocked(s,active){const n=Number(s.blockedChanges)||0;if(active&&blockedBaseline!==null&&n>blockedBaseline){let notice=document.getElementById('lane-blocked');if(!notice){notice=document.createElement('div');notice.id='lane-blocked';notice.setAttribute('role','status');document.body.append(notice);}notice.textContent='ПЕРЕСТРОЕНИЕ ЗАПРЕЩЕНО';notice.hidden=false;clearTimeout(blockedNoticeTimer);blockedNoticeTimer=setTimeout(()=>notice.hidden=true,1400);}blockedBaseline=active?n:null;}
+let lastTelemetry=null;
 function applyTelemetry(s,active){
  const next={elapsed:Number(s.elapsed)||0,laneChanges:Number(s.laneChanges)||0,score:Number(s.score)||0};
  if(active&&lastTelemetry&&next.elapsed>=lastTelemetry.elapsed){
@@ -200,7 +202,7 @@ let gameSession = null;
         const state=message.state||{},team=Number(teamInput.value)===2?'purple':'blue';
         const playing=state.raceRunning===true&&!state.paused&&state.activeTeam===team;
         document.querySelectorAll('#buttons button').forEach(b=>b.disabled=!playing);
-        document.body.classList.toggle('benz-waiting',!playing);applyTelemetry(state,playing);
+        document.body.classList.toggle('benz-waiting',!playing);showBlocked(state,playing);applyTelemetry(state,playing);
         $('screen-title').textContent=playing?'УПРАВЛЕНИЕ':state.paused?'ПАУЗА':state.raceRunning?'ЖДЁМ СВОЕГО ЗАЕЗДА':'ЖДЁМ НАЧАЛА ЗАЕЗДА';
         $('game-message').textContent=playing?'Используй стрелки для перестроения':state.paused?'Игра на паузе':state.raceRunning?'Сейчас играет другая команда':'Ждём начала заезда';
       }else $('game-message').textContent = typeof message.state?.message === 'string' ? message.state.message : 'Игра обновлена'; },
