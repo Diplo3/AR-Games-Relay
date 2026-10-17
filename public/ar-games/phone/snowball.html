@@ -24,7 +24,7 @@ const url=path=>path+'?t='+encodeURIComponent(token);
 const refs={teamName:screen.querySelector('.teamName'),connection:screen.querySelector('.connectionName'),mode:screen.querySelector('.mode-caption'),title:screen.querySelector('.title'),subtitle:screen.querySelector('.subtitle'),snowball:screen.querySelector('.snowball'),arc:screen.querySelector('.arc'),blue:screen.querySelector('.blueScore'),red:screen.querySelector('.redScore'),blueLabel:screen.querySelector('.blueLabel'),redLabel:screen.querySelector('.redLabel'),clock:screen.querySelector('.clock'),arrows:screen.querySelectorAll('.morph-arrow'),arrowGroup:screen.querySelector('.orbit-arrows-spin'),trail:screen.querySelector('.throw-trail')};
 refs.teamName.textContent='КОМАНДА';refs.connection.textContent='НЕ ПОДКЛЮЧЁН';
 let relay=null;
-let lastRollSample='';
+let lastRollSample='',lastRollSampleAt=0;
 let awaitingFreshState=true;
 let throwConfirmation=null;
 
@@ -33,8 +33,8 @@ function transmitRoll(){
   if(!relay?.ready||awaitingFreshState||state?.networkVersion!==2||state?.paused||state?.phase!=='PLAYING'||ball?.state!=='RESERVED_ROLLING')return;
   const total=Math.min(requiredProgress(),Math.max(Number(ball.progress)||0,localProgress));
   const fingerprint=ball.id+':'+total;
-  if(fingerprint===lastRollSample||total<=(ball.progress||0))return;
-  if(relay.sendSensor('snowball.roll',{round:state.round,ballId:ball.id,total}))lastRollSample=fingerprint;
+  if(total<=0||(total<requiredProgress()&&total<=(ball.progress||0))||(fingerprint===lastRollSample&&performance.now()-lastRollSampleAt<400))return;
+  if(relay.sendSensor('snowball.roll',{round:state.round,ballId:ball.id,total})){lastRollSample=fingerprint;lastRollSampleAt=performance.now();}
 }
 
 async function send(data){
