@@ -82,7 +82,7 @@
    if((m.type==='delivered'||m.type==='ack'&&m.delivered)&&m.sessionId===this.sessionId){
     const i=this.queue.findIndex(q=>q.seq===m.seq);if(i>=0){this.queue.splice(i,1);this.stats.received++;this.persist();}
    }
-   if(m.type==='pong_app'&&this.ping&&m.id===this.ping.id){const ms=Date.now()-this.ping.time;Object.assign(this.stats,{rtt:ms,rttCount:this.stats.rttCount+1,rttTotal:this.stats.rttTotal+ms,rttMin:this.stats.rttMin===null?ms:Math.min(ms,this.stats.rttMin),rttMax:this.stats.rttMax===null?ms:Math.max(ms,this.stats.rttMax)});this.ping=null;this.persist();}
+   if(m.type==='pong_app'&&this.ping&&m.id===this.ping.id){const ms=Date.now()-this.ping.time;if(Number.isFinite(m.serverTs)&&ms>=0)this.clockOffset=m.serverTs-(this.ping.time+ms/2);Object.assign(this.stats,{rtt:ms,rttCount:this.stats.rttCount+1,rttTotal:this.stats.rttTotal+ms,rttMin:this.stats.rttMin===null?ms:Math.min(ms,this.stats.rttMin),rttMax:this.stats.rttMax===null?ms:Math.max(ms,this.stats.rttMax)});this.ping=null;this.persist();}
    if(m.type==='error'){
     if(['command_expired','invalid_command','sequence_conflict','session_mismatch','command_capacity'].includes(m.message)){const i=this.queue.findIndex(q=>q.seq===m.seq);if(i>=0){this.queue.splice(i,1);this.stats.lost++;this.persist();}}
     if(['room_required','host_already_connected','device_capacity','room_capacity'].includes(m.message))this.stop();
@@ -116,7 +116,7 @@
   }
   flushStates(){if(!this.ready)return;for(const[key,snapshot]of this.pendingStates){if(!this.send({type:'game_state_update',...snapshot}))break;this.pendingStates.delete(key);}}
   flush(){
-   const now=Date.now();const valid=q=>now-q.clientTs<=(q.gameId==='snezhnaya-bitva'?(['snowball.join','snowball.leave'].includes(q.action)?15000:5000):1800000);const expired=this.queue.filter(q=>!valid(q));if(expired.length){this.stats.lost+=expired.length;this.queue=this.queue.filter(valid);this.persist();}
+   const now=Date.now();const valid=q=>now-q.clientTs<=(q.gameId==='snezhnaya-bitva'?(['snowball.join','snowball.leave','snowball.roll'].includes(q.action)?15000:5000):1800000);const expired=this.queue.filter(q=>!valid(q));if(expired.length){this.stats.lost+=expired.length;this.queue=this.queue.filter(valid);this.persist();}
    for(const[id,ts]of this.seen)if(now-ts>(this.gameId==='snezhnaya-bitva'?60000:1860000))this.seen.delete(id);
    if(!this.ready)return;
    if(this.ping&&now-this.ping.time>10000){this.ws.close();return;}
