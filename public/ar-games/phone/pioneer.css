@@ -2,3 +2,6 @@
 
 /* Portrait remains playable when OS rotation is locked. */
 #rotate{display:none!important}.steer-panel{touch-action:none;user-select:none}#sensor-controls{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}#sensor-status:empty{display:none}#sensor-status{color:white;text-shadow:none;background:#103664;padding:4px 8px;border-radius:8px}#enable-sensor{padding:6px 12px}.race-footer{background:transparent}@media(orientation:portrait){h1{font-size:20px;padding:10px 14px}#connection{position:static;margin-left:6px}.steer-panel{padding:28px 12px}.steer-panel b{font-size:19px}.teams{flex-direction:column}.count{padding:20px 30px}}
+
+/* Keep scenery proportional without transferring larger assets. */
+body{background:#e4efff!important}#phone{background:url('pioneer-assets/sky.svg') center top/cover no-repeat!important}#phone:before{background:url('pioneer-assets/city.webp') center bottom/100% auto no-repeat!important}
