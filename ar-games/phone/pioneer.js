@@ -13,14 +13,14 @@ function update(s){game=s||{};if(game.phoneSession&&session!==game.phoneSession)
 if(game.phase==='finished'){screen('result');$('title').textContent='Итоги заезда';$('result-one').textContent=game.scores?.[0]||0;$('result-two').textContent=game.scores?.[1]||0;}
 else if(game.phase==='race'&&game.activePlayer===player){screen('race');$('title').textContent='Управляй наклоном телефона';}
 else{screen('wait');$('title').textContent=game.phase==='paused'?'Пауза':'Ожидание заезда';$('wait-caption').textContent=game.phase==='countdown'?'СТАРТ ЧЕРЕЗ':game.activePlayer&&game.activePlayer!==player?'ЕДЕТ ДРУГАЯ КОМАНДА':'ЖДЁМ СТАРТА';$('countdown').textContent=game.phase==='countdown'?game.countdown||3:'❄';}}
-async function join(team){if(player)return;player=team;screen('wait');$('title').textContent='Ожидание заезда';$('sensor-controls').hidden=false;requestLandscape();
+async function join(team){if(player)return;player=team;screen('wait');$('title').textContent='Ожидание заезда';$('sensor-controls').hidden=false;
 // Called directly from the team-button gesture for iOS sensor permission.
-const sensorPromise=enableSensor();
+const sensorPromise=enableSensor();requestLandscape();
 const mode=params.get('mode')==='lan'?'lan':'internet';const connection=mode==='lan'?{mode,url:params.get('relay')||`${location.protocol==='https:'?'wss':'ws'}://${location.host}`}:{mode,configUrl:params.get('config')||ARConnect.defaultConfigUrl};
 client=new ARConnect.Client({...connection,room,gameId,role:'player',team,clientId:id,capabilities:['orientation'],onState:message=>{$('connection').textContent=message;},onGameState:m=>update(m.state),onEvent:m=>{if(m.type==='joined')client.sendCommand('player.join',{name:teams[player-1]});}});client.start();
 await sensorPromise;}
 $('join-one').onclick=()=>join(1);$('join-two').onclick=()=>join(2);
-$('calibrate').onclick=()=>{hub.calibrate();latest=0;indicate(0);$('sensor-status').textContent='Центр установлен';};
+$('calibrate').onclick=()=>{hub.calibrate();latest=0;indicate(0);$('sensor-status').textContent='';};
 async function enableSensor(){const request=++sensorRequest;hub.stop();let active=false;try{active=await hub.start('orientation');}catch{}if(request!==sensorRequest){hub.stop();return;}sensorActive=active;$('enable-sensor').hidden=active;$('sensor-status').textContent=active?'':'Наклон недоступен. Веди пальцем по шкале; доступ можно повторить в настройках браузера.';}
 $('enable-sensor').onclick=()=>{enableSensor();requestLandscape();};
 const panel=document.querySelector('.steer-panel');let touchTimer=null,touchValue=0;
