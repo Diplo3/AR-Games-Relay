@@ -99,7 +99,7 @@ async function connect(selectedTeam){
     relay.start();
   }catch{setStatus(false);picker.hidden=false;screen.classList.add('choosing-team');}
 }
-picker.querySelectorAll('button[data-team]').forEach(button=>button.addEventListener('click',()=>connect(button.dataset.team)));
+picker.querySelectorAll('button[data-team]').forEach(button=>button.addEventListener('click',()=>{try{navigator.vibrate?.(1);}catch{}connect(button.dataset.team);}));
 function setStatus(connected){refs.connection.textContent=connected?'ПОДКЛЮЧЁН':'НЕТ СВЯЗИ';screen.classList.toggle('disconnected',!connected);}
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden){gesture=null;pending=0;zone.classList.remove('working');}
@@ -108,7 +108,7 @@ document.addEventListener('visibilitychange',()=>{
 let lastHapticAt=0,readyHapticUntil=0;
 
 function stopHaptics(){readyHapticUntil=0;try{navigator.vibrate?.(0);}catch{}}
-function haptic(kind){const now=performance.now();if(kind==='roll'&&(now-lastHapticAt<180||now<readyHapticUntil))return;lastHapticAt=now;if(kind==='ready')readyHapticUntil=now+1710;if(kind==='throw')stopHaptics();try{const pattern=kind==='ready'?[450,180,450,180,450]:kind==='throw'?550:22;if(typeof navigator.vibrate==='function'&&navigator.userActivation?.hasBeenActive!==false){navigator.vibrate(pattern);return;}window.raceHaptics?.impact?.(kind);}catch{}}
+function haptic(kind){const now=performance.now();if(kind==='roll'&&(now-lastHapticAt<180||now<readyHapticUntil))return;lastHapticAt=now;if(kind==='ready')readyHapticUntil=now+400;if(kind==='throw')stopHaptics();try{const pattern=kind==='ready'?[160,80,160]:kind==='throw'?220:22;if(typeof navigator.vibrate==='function'&&navigator.userActivation?.hasBeenActive!==false){if(navigator.vibrate(pattern)!==false)return;}window.raceHaptics?.impact?.(kind);}catch{}}
 function refresh(){transmitRoll();}
 setInterval(()=>{transmitRoll();},400);
 function observeAutoThrow(previous,next){
