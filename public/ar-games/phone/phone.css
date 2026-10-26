@@ -199,4 +199,9 @@ input, button { touch-action: manipulation; }
   touch-action: none;
 }
 
+/* Keep answer submission beside the answer, including offline numeric entry. */
+body:is([data-screen='number'], [data-screen='reconnect'], [data-screen='choice']) .bottom-action {
+  margin-top: 0;
+  padding-top: 14px;
+}
 
