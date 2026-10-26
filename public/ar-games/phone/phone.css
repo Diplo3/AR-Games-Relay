@@ -164,4 +164,13 @@ h2 { font-size: 20px; line-height: 1.3; font-weight: 600; }
   .center-state, .reveal-card { animation: appear .24s ease; }
   @keyframes appear { from { opacity: .5; } to { opacity: 1; } }
 }
+/* Center each answer summary as one group in both axes. */
+.compare > div {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 88px;
+}
 
