@@ -37,7 +37,7 @@ function questionHeader() {
   return '';
 }
 function numberQuestion(reconnect = false) {
-  return `${reconnect ? '<div class="connection-banner" role="status"><strong>Восстанавливаем связь</strong>Ваш ответ сохранён на телефоне.</div>' : ''}${questionHeader()}<h1 class="question-title">${esc(state.question?.text)}</h1><form class="answer-form" id="number-form"><label for="number-answer">Ваш ответ</label><div class="number-field"><input id="number-answer" type="text" inputmode="decimal" maxlength="64" autocomplete="off" placeholder="0" aria-label="Ваш числовой ответ" value="${esc(reconnect ? view.answer : view.answer)}"></div><p id="input-error" class="inline-error" hidden></p></form><div class="bottom-action"><button class="primary" form="number-form" type="submit" ${reconnect || pending ? 'disabled' : ''}>${reconnect ? 'Ждём соединения…' : pending ? 'Отправляем…' : 'Отправить ответ'}</button></div>`;
+  return `${reconnect ? '<div class="connection-banner" role="status"><strong>Восстанавливаем связь</strong>Ваш ответ сохранён на телефоне.</div>' : ''}${questionHeader()}<h1 class="question-title">${esc(state.question?.text)}</h1><form class="answer-form" id="number-form"><label for="number-answer">Ваш ответ</label><div class="number-field"><input id="number-answer" type="text" inputmode="decimal" maxlength="64" autocomplete="off" aria-label="Ваш числовой ответ" value="${esc(reconnect ? view.answer : view.answer)}"></div><p id="input-error" class="inline-error" hidden></p></form><div class="bottom-action"><button class="primary" form="number-form" type="submit" ${reconnect || pending ? 'disabled' : ''}>${reconnect ? 'Ждём соединения…' : pending ? 'Отправляем…' : 'Отправить ответ'}</button></div>`;
 }
 function choiceQuestion() {
   const options = (state.question?.options || []).map(o=>o.text);
@@ -116,4 +116,5 @@ window.KtoPhoneUI=class {
  error(text){fail(text);}
 };
 })();
+
 
