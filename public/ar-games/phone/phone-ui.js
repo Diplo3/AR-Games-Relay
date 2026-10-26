@@ -1,4 +1,41 @@
 /* Approved shared presentation for LAN and internet. */
+/* Keep native browser gestures from selecting or scaling the game surface. */
+(() => {
+  const cancel = event => { if (event.cancelable) event.preventDefault(); };
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend', 'dblclick', 'contextmenu', 'selectstart', 'dragstart'])
+    document.addEventListener(type, cancel, {passive:false});
+  for (const type of ['touchstart', 'touchmove'])
+    document.addEventListener(type, event => { if (event.touches.length > 1) cancel(event); }, {passive:false});
+  const app = document.querySelector('.phone-app');
+  const notice = document.createElement('div');
+  notice.className = 'portrait-notice';
+  notice.hidden = true;
+  notice.setAttribute('role', 'status');
+  notice.textContent = 'Поверните телефон вертикально';
+  document.body.append(notice);
+  function updateOrientation() {
+    // Screen orientation, unlike viewport aspect ratio, ignores the keyboard.
+    const landscape = screen.orientation?.type
+      ? screen.orientation.type.startsWith('landscape')
+      : typeof window.orientation === 'number' ? Math.abs(window.orientation) === 90
+      : screen.width > screen.height;
+    const blocked = navigator.maxTouchPoints > 0 && landscape;
+    notice.hidden = !blocked;
+    app.inert = blocked;
+    app.setAttribute('aria-hidden', String(blocked));
+  }
+  function lockPortrait() {
+    if (navigator.maxTouchPoints > 0)
+      try { Promise.resolve(screen.orientation?.lock?.('portrait')).catch(() => {}); } catch {}
+    updateOrientation();
+  }
+  screen.orientation?.addEventListener?.('change', updateOrientation);
+  window.addEventListener('orientationchange', updateOrientation);
+  window.addEventListener('resize', updateOrientation);
+  document.addEventListener('fullscreenchange', lockPortrait);
+  document.addEventListener('pointerup', lockPortrait, {once:true});
+  updateOrientation();
+})();
 (() => {
 let state={}, available=[], callbacks, connected=false, hostOnline=false, pending=false, errorText='', draftKey='', fingerprint='';
 const view={screen:'connecting',team:'',selectedId:'',page:0,answer:'',option:'',resultsPage:0};
