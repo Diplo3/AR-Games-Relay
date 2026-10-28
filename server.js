@@ -8,6 +8,7 @@ const { createShortCodeApi } = require('./server/license-short-codes');
 function createRelay() {
  const app = express(), server = http.createServer(app);
  createShortCodeApi().register(app, express);
+ app.use('/camera', require('./camera/server.cjs').createCameraHandler());
  const wss = new WebSocketServer({ server, maxPayload: 16384 });
  const rooms = new Map(), epoch = randomUUID(), retentionMs = 1800000;
  const configuredPhoneLimit=Number.parseInt(process.env.MAX_PHONES_PER_ROOM,10),configuredCommandLimit=Number.parseInt(process.env.MAX_COMMANDS_PER_SECOND,10),maxTeams=50;
