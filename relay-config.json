@@ -1,16 +1,17 @@
 {
   "schemaVersion": 1,
-  "revision": 1,
+  "revision": 2,
   "protocol": {
     "minimum": 3,
     "current": 3
   },
   "endpoints": {
-    "internet": "wss://ar-games-relay.onrender.com",
+    "internet": "wss://ar-games-relay-diplo91-i6h8.onreza.app",
     "lan": null
   },
   "assets": {
-    "phoneBaseUrl": "https://ar-games-relay.onrender.com/ar-games/phone/"
+    "phoneBaseUrl": "https://ar-games-relay-diplo91-i6h8.onreza.app/ar-games/phone/",
+    "cameraBaseUrl": "https://ar-games-relay-diplo91-i6h8.onreza.app/camera/"
   },
   "limits": {
     "maxPhonesPerRoom": 50,
