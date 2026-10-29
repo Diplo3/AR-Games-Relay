@@ -5,7 +5,27 @@
       "name": "server",
       "target": "COMPUTE",
       "directory": ".",
-      "entry": "server.js"
+      "entry": "server.js",
+      "runtime": {
+        "network": {
+          "schemaVersion": "COMPUTE_NETWORK_V1",
+          "exposure": "PUBLIC",
+          "ports": [
+            {
+              "name": "http",
+              "protocol": "http",
+              "port": 3000,
+              "binding": "primary"
+            }
+          ],
+          "readiness": {
+            "protocol": "http",
+            "port": "http",
+            "path": "/health"
+          },
+          "allowFrom": []
+        }
+      }
     }
   ],
   "routes": [
