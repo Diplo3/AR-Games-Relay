@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "layers": [
+    {
+      "name": "server",
+      "target": "COMPUTE",
+      "directory": ".",
+      "entry": "server.js"
+    }
+  ],
+  "routes": [
+    {
+      "pattern": "^/.*$",
+      "layer": "server",
+      "priority": 0
+    }
+  ]
+}
