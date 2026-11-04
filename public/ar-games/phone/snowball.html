@@ -127,4 +127,9 @@ screen.addEventListener('pointerup',event=>{if(!gesture||gesture.id!==event.poin
 screen.addEventListener('pointercancel',()=>{gesture=null;zone.classList.remove('working');render();});
 
 window.addEventListener('pagehide',stopHaptics);document.addEventListener('visibilitychange',()=>{if(document.hidden)stopHaptics();});
-</script></body></html>
+</script><style id="ar-portrait-guard-style">
+#ar-portrait-guard{display:none;position:fixed;inset:0;z-index:2147483647;box-sizing:border-box;background:#091725;color:#fff0ce;align-items:center;justify-content:center;text-align:center;padding:24px;font:700 24px/1.35 system-ui,sans-serif;touch-action:none}
+#ar-portrait-guard svg{display:block;width:64px;height:84px;margin:0 auto 16px;fill:none;stroke:currentColor;stroke-width:3}
+@media(orientation:landscape) and (pointer:coarse){#ar-portrait-guard{display:flex}}
+</style><div id="ar-portrait-guard" role="status"><div><svg viewBox="0 0 64 84" aria-hidden="true"><rect x="12" y="3" width="40" height="76" rx="7"/><path d="M26 10h12M28 71h8"/></svg>Поверните телефон<br>вертикально</div></div>
+</body></html>
