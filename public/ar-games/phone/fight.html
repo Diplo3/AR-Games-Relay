@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="ar-fight-controller-v1" content="1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#101824">
+  <meta name="referrer" content="no-referrer">
+  <title>AR FIGHT — пульт</title>
+  <link rel="stylesheet" href="fight.css">
+</head>
+<body>
+  <header><h1>AR FIGHT</h1><span id="player">Игрок</span><span id="connection" role="status">Не подключено</span></header>
+  <section id="join"><h2>Ваш боец готов</h2><p>Держите телефон горизонтально. Одновременные нажатия поддерживаются.</p><button id="connect" type="button">Подключиться</button><p id="error" role="alert"></p></section>
+  <main id="controller" hidden>
+    <p id="round" role="status">Ждём ведущего…</p>
+    <div class="playfield" id="playfield">
+      <div class="dpad" aria-label="Направления">
+        <button data-action="jump" class="up" aria-label="Прыжок">Прыжок</button>
+        <button data-action="left" class="left" aria-label="Влево">Влево</button>
+        <button data-action="right" class="right" aria-label="Вправо">Вправо</button>
+        <button data-action="crouch" class="down">Присед</button>
+      </div>
+      <div class="actions">
+        <button data-action="light" class="light">Удар</button>
+        <button data-action="heavy" class="heavy">Сильный</button>
+        <button data-action="block" class="block">Блок<span>удерживать</span></button>
+      </div>
+    </div>
+    <footer><span id="layout">Полное управление</span><button id="fullscreen" type="button">На весь экран</button></footer>
+  </main>
+  <script src="fight-connect.js"></script><script src="fight-input.js"></script><script src="fight.js"></script>
+</body>
+</html>
