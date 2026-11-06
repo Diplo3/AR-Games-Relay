@@ -11,10 +11,11 @@
   const input = new FightInput.State(), session = crypto.randomUUID ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint32Array(4))).join('-');
   let client, seq = 0, epoch = '', active = false, mode = 'full', timer;
   const buttons = [...document.querySelectorAll('[data-action]')];
+  const landscape = () => matchMedia('(orientation: landscape)').matches;
   $('player').textContent = 'Игрок ' + slot;
   function clear() {input.clear(); for (const b of buttons) b.classList.remove('pressed');}
   function render() {
-    const playing = active && !!client?.ready;
+    const playing = active && !!client?.ready && landscape();
     for (const button of buttons) button.disabled = !playing;
     $('playfield').classList.toggle('arcade', mode === 'arcade');
     $('layout').textContent = mode === 'arcade' ? 'Аркада · удар и блок' : 'Полное управление';
@@ -25,17 +26,23 @@
   }
   sessionStorage.setItem('ar-fight-slot:' + room, String(slot)); sessionStorage.setItem('ar-fight-key:' + room + ':' + slot, key);
   history.replaceState(null, '', location.pathname + location.search);
-  function send() {if (client?.ready && epoch) client.sendSensor('fight.input', {v: 1, key, session, epoch, seq: ++seq, ...input.snapshot()});}
+  function send() {
+    if (!landscape()) clear();
+    if (client?.ready && epoch) client.sendSensor('fight.input', {v: 1, key, session, epoch, seq: ++seq, ...input.snapshot()});
+  }
+  function orientationChanged() {input.clear(true); clear(); send(); render();}
+  matchMedia('(orientation: landscape)').addEventListener('change', orientationChanged);
+  window.addEventListener('resize', orientationChanged);
   for (const button of buttons) {
     button.addEventListener('pointerdown', event => {
-      if (!active || !client?.ready) return; event.preventDefault();
+      if (!active || !client?.ready || !landscape()) return; event.preventDefault();
       button.setPointerCapture(event.pointerId); input.press(event.pointerId, button.dataset.action); button.classList.add('pressed');
     });
     function release(event) {input.release(event.pointerId); if (![...input.down.values()].includes(button.dataset.action)) button.classList.remove('pressed');}
     button.addEventListener('pointerup', release); button.addEventListener('pointercancel', release); button.addEventListener('lostpointercapture', release);
   }
   const keyboard = {ArrowLeft: 'left', ArrowRight: 'right', ArrowUp: 'jump', ArrowDown: 'crouch', KeyF: 'light', KeyG: 'heavy', KeyH: 'block'};
-  window.addEventListener('keydown', event => {const action = keyboard[event.code] || (['Enter', 'Space'].includes(event.code) ? event.target.dataset?.action : null); if (action && active && client?.ready) {event.preventDefault(); input.press('key:' + event.code, action);}});
+  window.addEventListener('keydown', event => {const action = keyboard[event.code] || (['Enter', 'Space'].includes(event.code) ? event.target.dataset?.action : null); if (action && active && client?.ready && landscape()) {event.preventDefault(); input.press('key:' + event.code, action);}});
   window.addEventListener('keyup', event => input.release('key:' + event.code));
   window.addEventListener('blur', () => {clear(); send();});
   document.addEventListener('visibilitychange', () => {clear(); send();});
@@ -56,6 +63,10 @@
     });
     $('join').hidden = true; $('controller').hidden = false; render(); client.start(); timer = setInterval(send, 50);
   };
-  $('fullscreen').onclick = async () => {try {await document.documentElement.requestFullscreen?.();} catch { $('round').textContent = 'Полный экран недоступен. Пульт продолжает работать.'; }};
+  $('fullscreen').onclick = async () => {
+    try {await document.documentElement.requestFullscreen?.();}
+    catch { $('round').textContent = 'Полный экран недоступен. Пульт продолжает работать.'; }
+    try {await screen.orientation?.lock?.('landscape');} catch { /* Portrait input stays blocked in browsers without orientation lock. */ }
+  };
   window.addEventListener('pagehide', () => {clear(); send(); clearInterval(timer); client?.stop();});
 })();
