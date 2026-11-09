@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Быстрее Шазама</title>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"><title>Быстрее Шазама</title>
 <style>*{box-sizing:border-box}body{margin:0;color:#fff;font:17px system-ui,sans-serif;background:radial-gradient(ellipse at 10% 15%,#652175,transparent 48%),radial-gradient(ellipse at 90% 70%,#322369,transparent 48%),#170a32}main{min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:24px}img{width:min(75vw,300px)}section{width:min(100%,450px);margin:auto;text-align:center;padding:20px;border:1px solid #eadcff55;border-radius:22px;background:#29164675;backdrop-filter:blur(10px)}h1{font-size:28px}button{width:100%;padding:12px;margin-top:8px;color:#fff;background:#6b498577;border:1px solid #f2d9ff70;border-radius:13px;font:600 17px system-ui;touch-action:manipulation}.buzz{aspect-ratio:1;width:min(65vw,240px);border-radius:50%;background:#f9d561;color:#28113b;font-size:31px}.buzz:disabled{background:#342747;color:#d7cae2}
 nav{display:flex;justify-content:center;align-items:center;gap:10px}nav button{width:46px}
 
@@ -9,9 +9,9 @@ nav{display:flex;justify-content:center;align-items:center;gap:10px}nav button{w
 @media(prefers-reduced-motion:reduce){.emblem-sweep{animation:none}}
 
 
-.brand{font-size:clamp(32px,10vw,56px);line-height:.94;text-align:center;margin:18px auto;color:#fff1d9;text-shadow:0 .09em #9c42d3,0 .18em #472168}.buzz:enabled{background:linear-gradient(150deg,#f06cb7,#9057f7);color:white;border:2px solid #f4bfff}</style>
+.brand{font-size:clamp(32px,10vw,56px);line-height:.94;text-align:center;margin:18px auto;color:#fff1d9;text-shadow:0 .09em #9c42d3,0 .18em #472168}.buzz:enabled{background:linear-gradient(150deg,#f06cb7,#9057f7);color:white;border:2px solid #f4bfff}html,body{overscroll-behavior:none;touch-action:pan-y;-webkit-text-size-adjust:100%}body,button,img{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;-webkit-user-drag:none}button{touch-action:pan-y}@media(orientation:landscape) and (max-height:520px){main{display:grid;grid-template-columns:minmax(110px,1fr) minmax(0,2fr);align-items:center;gap:12px;padding:10px}section{max-height:calc(100dvh - 20px);overflow:auto}.buzz{width:min(34vh,200px)}}</style>
 <main><h1 class="brand">Быстрее<br>Шазама</h1><section id="phone" aria-live="polite">Подключение…</section></main>
-<script src="connect.js"></script><script>(() => {
+<script>(()=>{const cancel=e=>{if(e.cancelable)e.preventDefault()};for(const type of ['gesturestart','gesturechange','gestureend','dblclick','contextmenu','selectstart','dragstart'])document.addEventListener(type,cancel,{passive:false});for(const type of ['touchstart','touchmove'])document.addEventListener(type,e=>{if(e.touches.length>1)cancel(e)},{passive:false})})();</script><script src="connect.js"></script><script>(() => {
  const room=new URLSearchParams(location.search).get('room');
  const view=document.querySelector('#phone');
  if(!room){view.textContent='Откройте QR-код ведущего.';return}
