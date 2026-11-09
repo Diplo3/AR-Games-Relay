@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Быстрее Шазама</title>
+<style>*{box-sizing:border-box}body{margin:0;color:#fff;font:17px system-ui,sans-serif;background:radial-gradient(ellipse at 10% 15%,#652175,transparent 48%),radial-gradient(ellipse at 90% 70%,#322369,transparent 48%),#170a32}main{min-height:100dvh;display:flex;flex-direction:column;align-items:center;padding:24px}img{width:min(75vw,300px)}section{width:min(100%,450px);margin:auto;text-align:center;padding:20px;border:1px solid #eadcff55;border-radius:22px;background:#29164675;backdrop-filter:blur(10px)}h1{font-size:28px}button{width:100%;padding:12px;margin-top:8px;color:#fff;background:#6b498577;border:1px solid #f2d9ff70;border-radius:13px;font:600 17px system-ui;touch-action:manipulation}.buzz{aspect-ratio:1;width:min(65vw,240px);border-radius:50%;background:#f9d561;color:#28113b;font-size:31px}.buzz:disabled{background:#342747;color:#d7cae2}
+nav{display:flex;justify-content:center;align-items:center;gap:10px}nav button{width:46px}
+
+.emblem-edge{display:block;width:min(75vw,300px);height:auto;overflow:visible;pointer-events:none}
+.emblem-sweep{animation:emblem-sweep 7s .5s linear infinite}
+@keyframes emblem-sweep{0%{transform:translateX(0)}40%,100%{transform:translateX(2500px)}}
+@media(prefers-reduced-motion:reduce){.emblem-sweep{animation:none}}
+
+
+.brand{font-size:clamp(32px,10vw,56px);line-height:.94;text-align:center;margin:18px auto;color:#fff1d9;text-shadow:0 .09em #9c42d3,0 .18em #472168}.buzz:enabled{background:linear-gradient(150deg,#f06cb7,#9057f7);color:white;border:2px solid #f4bfff}</style>
+<main><h1 class="brand">Быстрее<br>Шазама</h1><section id="phone" aria-live="polite">Подключение…</section></main>
+<script src="connect.js"></script><script>(() => {
+ const room=new URLSearchParams(location.search).get('room');
+ const view=document.querySelector('#phone');
+ if(!room){view.textContent='Откройте QR-код ведущего.';return}
+ const key='shazam-relay:'+room;
+ const clientId=localStorage.getItem(key)||crypto.randomUUID();
+ localStorage.setItem(key,clientId);
+ let connected=false, hostOnline=false, state, team, pending=false, error='';
+ const escape=value=>String(value).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'})[c]);
+ function render(){
+  if(!connected||!hostOnline||!state){view.textContent='Ожидаем связь с ведущим…';return}
+  const name=team&&state.names[team-1];
+  if(!name){
+   view.innerHTML='<h1>Выберите команду</h1>'+state.names.map((item,index)=>'<button data-team="'+(index+1)+'" '+(state.taken.includes(index+1)||pending?'disabled':'')+'>'+escape(item)+'</button>').join('');
+  }else{
+   const caption=state.winner===team?'Вы первые!':state.winner?escape(state.names[state.winner-1])+' быстрее':state.active?'ЗНАЮ':'Ждите';
+   view.innerHTML='<h1>'+escape(name)+'</h1><button class="buzz" data-buzz '+(!state.active||pending?'disabled':'')+'>'+caption+'</button>';
+  }
+  if(error){const message=document.createElement('p');message.textContent=error;view.append(message)}
+ }
+ const client=new ARConnect.Client({room,role:'player',clientId,team:1,gameId:'ar-games-bystree-shazama',
+  onState(status){connected=status==='Подключено';pending=false;render()},
+  onEvent(event){if(event.type==='room_stats'){hostOnline=!!event.hostOnline;render()}},
+  onGameState(event){
+   if(!event.state)return;
+   if(event.clientId){team=event.state.team;error=event.state.error||'';pending=false}
+   else{if(state?.round!==event.state.round||event.state.winner)pending=false;state=event.state;if(state.reset)team=null}
+   render();
+  }
+ });
+ view.addEventListener('click',event=>{
+  const button=event.target.closest('button');
+  if(!button||button.disabled||!connected||!hostOnline||pending)return;
+  const buzz=button.hasAttribute('data-buzz');
+  if(buzz)navigator.vibrate?.(45);
+  pending=client.sendCommand(buzz?'shazam.buzz':'shazam.join',buzz?{round:state.round}:{team:Number(button.dataset.team)});
+  if(pending)setTimeout(()=>{if(pending){pending=false;render()}},3500);
+  render();
+ });
+ client.start();
+ addEventListener('beforeunload',()=>client.stop());
+})();
+</script>
+</html>
